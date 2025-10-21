@@ -1,174 +1,166 @@
-/**
- * Monitora produção e cria apontamentos automáticos
- */
-
-import { prisma } from '../config/database';
-import { logger, logAppointmentCreated } from '../utils/logger';
-
-interface ValueChangedData {
-  plcConfigId: number;
-  plcName: string;
-  sectorId: number | null;
-  register: {
-    id: number;
-    name: string;
-    address: number;
-  };
-  previousValue: number;
-  value: number;
-  increment: number;
-  timestamp: Date;
-}
+import { logger } from '../utils/logger';
+import { ApiClient, ProductionOrderResponse, ProductionAppointmentPayload } from './ApiClient';
 
 /**
- * Monitor de produção
+ * Monitora ordens de produção ativas e envia apontamentos
+ * Busca informações do backend via API
  */
 export class ProductionMonitor {
+  private apiClient: ApiClient;
+  private checkInterval: NodeJS.Timeout | null = null;
+  private activeOrders: Map<number, ProductionOrderResponse> = new Map();
+  private isRunning: boolean = false;
+
+  constructor(apiClient: ApiClient) {
+    this.apiClient = apiClient;
+  }
+
   /**
-   * Processa mudança de valor de registro
+   * Iniciar monitoramento
    */
-  public async handleValueChange(data: ValueChangedData): Promise<void> {
+  async start(): Promise<void> {
+    if (this.isRunning) {
+      logger.warn('⚠️  ProductionMonitor já está rodando');
+      return;
+    }
+
+    this.isRunning = true;
+    logger.info('📊 ProductionMonitor: Iniciando...');
+
+    // Carregar ordens iniciais
+    await this.loadActiveOrders();
+
+    // Verificar ordens a cada 10 segundos
+    this.checkInterval = setInterval(async () => {
+      await this.loadActiveOrders();
+    }, 10000);
+
+    logger.info('📊 ProductionMonitor: Iniciado');
+  }
+
+  /**
+   * Parar monitoramento
+   */
+  stop(): void {
+    logger.info('📊 ProductionMonitor: Parando...');
+    
+    this.isRunning = false;
+
+    if (this.checkInterval) {
+      clearInterval(this.checkInterval);
+      this.checkInterval = null;
+    }
+
+    this.activeOrders.clear();
+    logger.info('📊 ProductionMonitor: Parado');
+  }
+
+  /**
+   * Carregar ordens de produção ativas
+   */
+  private async loadActiveOrders(): Promise<void> {
     try {
-      // Verificar se há ordens de produção ativas
-      const activeOrders = await this.getActiveOrders(data.sectorId);
-
-      if (activeOrders.length === 0) {
-        logger.debug(`Nenhuma ordem ativa para o setor do CLP "${data.plcName}"`);
-        return;
+      const orders = await this.apiClient.getActiveProductionOrders();
+      
+      // Atualizar mapa de ordens ativas
+      this.activeOrders.clear();
+      for (const order of orders) {
+        this.activeOrders.set(order.id, order);
       }
 
-      // Processar apenas se incremento for positivo
-      if (data.increment <= 0) {
-        logger.debug(`Incremento não positivo (${data.increment}), ignorando apontamento`);
-        return;
+      if (orders.length > 0) {
+        logger.debug(`📊 ${orders.length} ordens de produção ativas`);
       }
-
-      // Processar cada ordem ativa
-      for (const order of activeOrders) {
-        await this.createAppointment(order, data);
-      }
-
-    } catch (error) {
-      logger.error('Erro ao processar mudança de valor:', error);
+    } catch (error: any) {
+      logger.error('❌ Erro ao carregar ordens de produção:', error.message);
     }
   }
 
   /**
-   * Busca ordens de produção ativas
+   * Registrar apontamento de produção
+   * Chamado quando detecta mudança no contador do CLP
    */
-  private async getActiveOrders(sectorId: number | null) {
-    const where: any = {
-      status: 'IN_PROGRESS',
-    };
-
-    // Filtrar por setor se fornecido
-    if (sectorId) {
-      where.sectorId = sectorId;
-    }
-
-    return await prisma.productionOrder.findMany({
-      where,
-      include: {
-        item: true,
-        sector: true,
-      },
-    });
-  }
-
-  /**
-   * Cria apontamento automático
-   */
-  private async createAppointment(order: any, data: ValueChangedData): Promise<void> {
+  async recordProduction(
+    productionOrderId: number,
+    quantity: number,
+    plcDataId?: number
+  ): Promise<boolean> {
     try {
-      // Buscar ou criar usuário "Sistema" para apontamentos automáticos
-      const systemUser = await this.getSystemUser();
-
-      // Criar apontamento
-      const appointment = await prisma.productionAppointment.create({
-        data: {
-          productionOrderId: order.id,
-          userId: systemUser.id,
-          quantity: data.increment,
-          automatic: true,
-          clpCounterValue: data.value,
-          notes: `Apontamento automático via CLP "${data.plcName}" - Registro: ${data.register.name} - Valor: ${data.value}`,
-        },
-      });
-
-      // Atualizar quantidade produzida na ordem
-      const newProducedQuantity = order.producedQuantity + data.increment;
-      const isCompleted = newProducedQuantity >= order.plannedQuantity;
-
-      const updatedOrder = await prisma.productionOrder.update({
-        where: { id: order.id },
-        data: {
-          producedQuantity: newProducedQuantity,
-          ...(isCompleted && {
-            status: 'COMPLETED',
-            endDate: new Date(),
-          }),
-        },
-      });
-
-      logAppointmentCreated(order.orderNumber, data.increment, newProducedQuantity);
-
-      if (isCompleted) {
-        logger.info(`🎉 Ordem ${order.orderNumber} CONCLUÍDA! (${newProducedQuantity}/${order.plannedQuantity})`);
+      const order = this.activeOrders.get(productionOrderId);
+      
+      if (!order) {
+        logger.warn(`⚠️  Ordem de produção ${productionOrderId} não está ativa`);
+        return false;
       }
 
-    } catch (error) {
-      logger.error(`Erro ao criar apontamento para ordem ${order.orderNumber}:`, error);
+      const appointment: ProductionAppointmentPayload = {
+        productionOrderId,
+        quantity,
+        timestamp: new Date(),
+        plcDataId: plcDataId || null,
+      };
+
+      const success = await this.apiClient.sendProductionAppointment(appointment);
+      
+      if (success) {
+        logger.info(`✅ Apontamento registrado: OP ${order.orderNumber} - ${quantity} peças`);
+        
+        // Recarregar ordens para obter quantidade atualizada
+        await this.loadActiveOrders();
+      }
+
+      return success;
+    } catch (error: any) {
+      logger.error('❌ Erro ao registrar apontamento:', error.message);
+      return false;
     }
   }
 
   /**
-   * Obtém ou cria usuário "Sistema" para apontamentos automáticos
+   * Verificar se uma ordem de produção está ativa
    */
-  private async getSystemUser() {
-    let systemUser = await prisma.user.findFirst({
-      where: { email: 'sistema@mes.local' },
-    });
-
-    if (!systemUser) {
-      logger.info('Criando usuário "Sistema" para apontamentos automáticos...');
-      systemUser = await prisma.user.create({
-        data: {
-          email: 'sistema@mes.local',
-          password: 'N/A', // Usuário não faz login
-          name: 'Sistema (Automático)',
-          role: 'OPERATOR',
-          active: false, // Não pode fazer login
-        },
-      });
-      logger.info('✅ Usuário "Sistema" criado');
-    }
-
-    return systemUser;
+  isOrderActive(productionOrderId: number): boolean {
+    return this.activeOrders.has(productionOrderId);
   }
 
   /**
-   * Obtém estatísticas de produção
+   * Obter ordem de produção ativa
    */
-  public async getProductionStats(orderId?: number) {
-    const where = orderId ? { productionOrderId: orderId } : {};
+  getActiveOrder(productionOrderId: number): ProductionOrderResponse | undefined {
+    return this.activeOrders.get(productionOrderId);
+  }
 
-    const stats = await prisma.productionAppointment.aggregate({
-      where,
-      _sum: {
-        quantity: true,
-        rejectedQuantity: true,
-      },
-      _count: true,
-    });
+  /**
+   * Obter todas as ordens ativas
+   */
+  getActiveOrders(): ProductionOrderResponse[] {
+    return Array.from(this.activeOrders.values());
+  }
+
+  /**
+   * Obter estatísticas
+   */
+  getStats(): {
+    totalActiveOrders: number;
+    orders: Array<{
+      id: number;
+      orderNumber: string;
+      itemId: number;
+      status: string;
+      producedQuantity: number;
+    }>;
+  } {
+    const orders = Array.from(this.activeOrders.values());
 
     return {
-      totalProduced: stats._sum.quantity || 0,
-      totalRejected: stats._sum.rejectedQuantity || 0,
-      totalAppointments: stats._count,
-      qualityRate: stats._sum.quantity 
-        ? ((stats._sum.quantity - (stats._sum.rejectedQuantity || 0)) / stats._sum.quantity) * 100 
-        : 100,
+      totalActiveOrders: orders.length,
+      orders: orders.map(o => ({
+        id: o.id,
+        orderNumber: o.orderNumber,
+        itemId: o.itemId,
+        status: o.status,
+        producedQuantity: o.producedQuantity,
+      })),
     };
   }
 }
-

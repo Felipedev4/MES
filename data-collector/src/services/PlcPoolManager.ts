@@ -1,223 +1,182 @@
-/**
- * Gerencia pool de conexões com múltiplos CLPs
- */
-
-import { EventEmitter } from 'events';
-import { prisma } from '../config/database';
-import { PlcConnection } from './PlcConnection';
 import { logger } from '../utils/logger';
-
-interface PlcConfigData {
-  id: number;
-  name: string;
-  host: string;
-  port: number;
-  unitId: number;
-  timeout: number;
-  pollingInterval: number;
-  reconnectInterval: number;
-  sectorId: number | null;
-  active: boolean;
-  registers: Array<{
-    id: number;
-    registerName: string;
-    registerAddress: number;
-    description: string | null;
-    dataType: string;
-    enabled: boolean;
-  }>;
-}
+import { ApiClient, PlcConfigResponse } from './ApiClient';
+import { PlcConnection } from './PlcConnection';
 
 /**
- * Gerenciador de pool de conexões com CLPs
+ * Gerencia múltiplas conexões de CLP
+ * Busca configurações do backend via API e mantém conexões ativas
  */
-export class PlcPoolManager extends EventEmitter {
+export class PlcPoolManager {
   private connections: Map<number, PlcConnection> = new Map();
-  private configReloadInterval: NodeJS.Timeout | null = null;
-  private lastConfigUpdate: Date = new Date(0);
+  private apiClient: ApiClient;
+  private configPollInterval: NodeJS.Timeout | null = null;
+  private isRunning: boolean = false;
 
-  constructor() {
-    super();
+  constructor(apiClient: ApiClient) {
+    this.apiClient = apiClient;
   }
 
   /**
-   * Inicializa o pool manager
+   * Iniciar o gerenciador
    */
-  public async initialize(): Promise<void> {
-    try {
-      logger.info('🚀 Inicializando Pool Manager de CLPs...');
+  async start(): Promise<void> {
+    if (this.isRunning) {
+      logger.warn('⚠️  PlcPoolManager já está rodando');
+      return;
+    }
 
-      // Carregar configurações ativas do banco
+    this.isRunning = true;
+    logger.info('🔌 PlcPoolManager: Iniciando...');
+
+    // Carregar configurações iniciais
+    await this.loadConfigurations();
+
+    // Iniciar polling de configurações
+    const pollInterval = parseInt(process.env.CONFIG_POLL_INTERVAL || '30000');
+    
+    this.configPollInterval = setInterval(async () => {
       await this.loadConfigurations();
+    }, pollInterval);
 
-      // Agendar reload periódico de configurações
-      this.scheduleConfigReload();
-
-      logger.info(`✅ Pool Manager inicializado com ${this.connections.size} CLP(s)`);
-    } catch (error) {
-      logger.error('❌ Erro ao inicializar Pool Manager:', error);
-      throw error;
-    }
+    logger.info(`🔌 PlcPoolManager: Iniciado (polling a cada ${pollInterval}ms)`);
   }
 
   /**
-   * Carrega configurações do banco de dados
+   * Parar o gerenciador
    */
-  public async loadConfigurations(): Promise<void> {
-    try {
-      const configs = await prisma.plcConfig.findMany({
-        where: { active: true },
-        include: {
-          registers: {
-            where: { enabled: true },
-            orderBy: { registerAddress: 'asc' },
-          },
-        },
-      });
-
-      if (configs.length === 0) {
-        logger.warn('⚠️ Nenhuma configuração de CLP ativa encontrada no banco de dados');
-        return;
-      }
-
-      logger.info(`📋 ${configs.length} configuração(ões) de CLP encontrada(s)`);
-
-      // Processar cada configuração
-      for (const config of configs) {
-        await this.processConfiguration(config);
-      }
-
-      // Remover conexões de CLPs que foram desativados
-      await this.removeInactiveConnections(configs.map(c => c.id));
-      
-    } catch (error) {
-      logger.error('Erro ao carregar configurações:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Processa uma configuração (criar ou atualizar conexão)
-   */
-  private async processConfiguration(config: any): Promise<void> {
-    const existingConnection = this.connections.get(config.id);
-
-    if (existingConnection) {
-      // Atualizar conexão existente
-      existingConnection.updateConfig(config);
-      logger.info(`🔄 Configuração do CLP "${config.name}" atualizada`);
-    } else {
-      // Criar nova conexão
-      const connection = new PlcConnection(config);
-      
-      // Escutar eventos
-      connection.on('connected', (cfg) => {
-        this.emit('plcConnected', cfg);
-      });
-
-      connection.on('disconnected', (cfg) => {
-        this.emit('plcDisconnected', cfg);
-      });
-
-      connection.on('error', (data) => {
-        this.emit('plcError', data);
-      });
-
-      connection.on('valueChanged', (data) => {
-        // Repassar evento para ProductionMonitor
-        this.emit('registerValueChanged', data);
-      });
-
-      // Adicionar ao pool
-      this.connections.set(config.id, connection);
-      
-      // Conectar
-      try {
-        await connection.connect();
-      } catch (error) {
-        logger.error(`Erro ao conectar CLP "${config.name}":`, error);
-      }
-    }
-  }
-
-  /**
-   * Remove conexões de CLPs inativos
-   */
-  private async removeInactiveConnections(activeIds: number[]): Promise<void> {
-    const currentIds = Array.from(this.connections.keys());
+  async stop(): Promise<void> {
+    logger.info('🔌 PlcPoolManager: Parando...');
     
-    for (const id of currentIds) {
-      if (!activeIds.includes(id)) {
-        const connection = this.connections.get(id);
-        if (connection) {
-          connection.disconnect();
-          this.connections.delete(id);
-          logger.info(`🗑️ Conexão com CLP ID ${id} removida (inativo)`);
-        }
-      }
-    }
-  }
+    this.isRunning = false;
 
-  /**
-   * Recarrega configurações periodicamente
-   */
-  private scheduleConfigReload(): void {
-    const interval = parseInt(process.env.CONFIG_RELOAD_INTERVAL || '30000');
-    
-    this.configReloadInterval = setInterval(async () => {
-      try {
-        // Verificar se houve mudanças
-        const latestUpdate = await prisma.plcConfig.findFirst({
-          orderBy: { updatedAt: 'desc' },
-          select: { updatedAt: true },
-        });
-
-        if (latestUpdate && latestUpdate.updatedAt > this.lastConfigUpdate) {
-          logger.info('🔄 Configurações alteradas, recarregando...');
-          await this.loadConfigurations();
-          this.lastConfigUpdate = latestUpdate.updatedAt;
-        }
-      } catch (error) {
-        logger.error('Erro ao verificar atualizações de configuração:', error);
-      }
-    }, interval);
-
-    logger.info(`⏱️ Verificação de configurações agendada a cada ${interval / 1000}s`);
-  }
-
-  /**
-   * Obtém status de todas as conexões
-   */
-  public getStatus() {
-    const connections = Array.from(this.connections.values()).map(conn => conn.getStatus());
-    
-    return {
-      total: connections.length,
-      connected: connections.filter(c => c.connected).length,
-      disconnected: connections.filter(c => !c.connected).length,
-      connections,
-    };
-  }
-
-  /**
-   * Desliga o pool manager
-   */
-  public async shutdown(): Promise<void> {
-    logger.info('🛑 Desligando Pool Manager...');
-
-    // Parar reload de configurações
-    if (this.configReloadInterval) {
-      clearInterval(this.configReloadInterval);
-      this.configReloadInterval = null;
+    // Parar polling de configurações
+    if (this.configPollInterval) {
+      clearInterval(this.configPollInterval);
+      this.configPollInterval = null;
     }
 
     // Desconectar todos os CLPs
-    for (const connection of this.connections.values()) {
+    for (const [id, connection] of this.connections.entries()) {
+      logger.info(`🔌 Desconectando CLP ${id}...`);
       connection.disconnect();
     }
 
     this.connections.clear();
-    logger.info('✅ Pool Manager desligado');
+    logger.info('🔌 PlcPoolManager: Parado');
+  }
+
+  /**
+   * Carregar configurações de CLP do backend
+   */
+  private async loadConfigurations(): Promise<void> {
+    try {
+      const configs = await this.apiClient.getActivePlcConfigs();
+      
+      logger.debug(`📥 Recebidas ${configs.length} configurações de CLP ativas`);
+
+      // Processar configurações
+      await this.processConfigurations(configs);
+      
+    } catch (error: any) {
+      logger.error('❌ Erro ao carregar configurações:', error.message);
+    }
+  }
+
+  /**
+   * Processar configurações recebidas
+   */
+  private async processConfigurations(configs: PlcConfigResponse[]): Promise<void> {
+    const currentIds = new Set(this.connections.keys());
+    const newIds = new Set(configs.map(c => c.id));
+
+    // Remover conexões que não existem mais
+    for (const id of currentIds) {
+      if (!newIds.has(id)) {
+        logger.info(`❌ Removendo CLP ${id} (não está mais ativo)`);
+        const connection = this.connections.get(id);
+        if (connection) {
+          connection.disconnect();
+          this.connections.delete(id);
+        }
+      }
+    }
+
+    // Adicionar ou atualizar conexões
+    for (const config of configs) {
+      const existingConnection = this.connections.get(config.id);
+
+      if (existingConnection) {
+        // Verificar se configuração mudou
+        if (this.hasConfigChanged(existingConnection, config)) {
+          logger.info(`🔄 Atualizando CLP ${config.id}`);
+          existingConnection.updateConfig(config);
+        }
+      } else {
+        // Criar nova conexão
+        logger.info(`➕ Adicionando CLP ${config.id}: ${config.name}`);
+        const connection = new PlcConnection(config, this.apiClient);
+        this.connections.set(config.id, connection);
+        await connection.connect();
+      }
+    }
+  }
+
+  /**
+   * Verificar se a configuração mudou
+   */
+  private hasConfigChanged(connection: PlcConnection, newConfig: PlcConfigResponse): boolean {
+    const status = connection.getStatus();
+    
+    return (
+      status.host !== newConfig.host ||
+      status.port !== newConfig.port ||
+      status.registers !== newConfig.registers.filter(r => r.enabled).length
+    );
+  }
+
+  /**
+   * Obter status de todas as conexões
+   */
+  getStatus(): {
+    total: number;
+    connected: number;
+    disconnected: number;
+    connections: Array<{
+      id: number;
+      name: string;
+      connected: boolean;
+      host: string;
+      port: number;
+      registers: number;
+    }>;
+  } {
+    const connections = Array.from(this.connections.values());
+    const connected = connections.filter(c => c.getStatus().connected).length;
+
+    return {
+      total: connections.length,
+      connected,
+      disconnected: connections.length - connected,
+      connections: connections.map(c => ({
+        id: c.getId(),
+        name: c.getName(),
+        ...c.getStatus(),
+      })),
+    };
+  }
+
+  /**
+   * Obter uma conexão específica
+   */
+  getConnection(id: number): PlcConnection | undefined {
+    return this.connections.get(id);
+  }
+
+  /**
+   * Forçar recarregamento de configurações
+   */
+  async reloadConfigurations(): Promise<void> {
+    logger.info('🔄 Recarregando configurações manualmente...');
+    await this.loadConfigurations();
   }
 }
-

@@ -1,135 +1,140 @@
-/**
- * MES Data Collector Service - Entry Point
- * 
- * Serviço independente para coleta de dados de CLPs via Modbus TCP
- * Roda no Raspberry Pi 5 e se comunica com banco de dados PostgreSQL
- */
-
-import dotenv from 'dotenv';
-import express from 'express';
-import { connectDatabase, disconnectDatabase } from './config/database';
+import * as dotenv from 'dotenv';
+import { logger } from './utils/logger';
+import { ApiClient } from './services/ApiClient';
 import { PlcPoolManager } from './services/PlcPoolManager';
 import { ProductionMonitor } from './services/ProductionMonitor';
-import { getHealthStatus } from './services/HealthCheck';
-import { logger } from './utils/logger';
+import { HealthCheck } from './services/HealthCheck';
 
 // Carregar variáveis de ambiente
 dotenv.config();
 
-// Instâncias dos serviços
-const plcPoolManager = new PlcPoolManager();
-const productionMonitor = new ProductionMonitor();
-
-// Express app para health check
-const app = express();
-const PORT = process.env.PORT || 3001;
-
-/**
- * Endpoint de health check
- */
-app.get('/health', async (req, res) => {
-  try {
-    const health = await getHealthStatus(plcPoolManager);
-    const statusCode = health.status === 'healthy' ? 200 : 503;
-    res.status(statusCode).json(health);
-  } catch (error) {
-    logger.error('Erro no health check:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Erro ao verificar saúde do sistema',
-    });
+// Validar variáveis obrigatórias
+const requiredEnvVars = ['BACKEND_API_URL', 'API_KEY'];
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    logger.error(`❌ Variável de ambiente ${envVar} não configurada`);
+    process.exit(1);
   }
-});
+}
+
+// Configurações
+const BACKEND_API_URL = process.env.BACKEND_API_URL!;
+const API_KEY = process.env.API_KEY!;
+const HEALTH_CHECK_PORT = parseInt(process.env.HEALTH_CHECK_PORT || '3002');
+
+// Serviços globais
+let apiClient: ApiClient;
+let plcPoolManager: PlcPoolManager;
+let productionMonitor: ProductionMonitor;
+let healthCheck: HealthCheck;
 
 /**
- * Endpoint de status resumido
+ * Inicializar aplicação
  */
-app.get('/status', (req, res) => {
-  const status = plcPoolManager.getStatus();
-  res.json({
-    uptime: process.uptime(),
-    plcs: {
-      total: status.total,
-      connected: status.connected,
-      disconnected: status.disconnected,
-    },
-  });
-});
-
-/**
- * Inicializa a aplicação
- */
-async function initialize() {
+async function initialize(): Promise<void> {
   try {
-    logger.info('╔════════════════════════════════════════╗');
-    logger.info('║   MES Data Collector Service v1.0.0   ║');
-    logger.info('╚════════════════════════════════════════╝');
+    logger.info('');
+    logger.info('================================================');
+    logger.info('  MES DATA COLLECTOR - Iniciando');
+    logger.info('================================================');
     logger.info('');
 
-    // 1. Conectar ao banco de dados
-    await connectDatabase();
+    // 1. Criar API Client
+    logger.info('🔗 Inicializando API Client...');
+    apiClient = new ApiClient(BACKEND_API_URL, API_KEY);
 
-    // 2. Inicializar Pool Manager de CLPs
-    await plcPoolManager.initialize();
-
-    // 3. Conectar eventos do Pool Manager ao Production Monitor
-    plcPoolManager.on('registerValueChanged', async (data) => {
-      await productionMonitor.handleValueChange(data);
-    });
-
-    // 4. Iniciar servidor HTTP (health check)
-    if (process.env.ENABLE_HEALTH_CHECK !== 'false') {
-      app.listen(PORT, () => {
-        logger.info(`🌐 Health check disponível em http://localhost:${PORT}/health`);
-      });
+    // 2. Testar conexão com backend
+    logger.info('🏥 Testando conexão com backend...');
+    const backendHealthy = await apiClient.checkBackendHealth();
+    if (!backendHealthy) {
+      logger.warn('⚠️  Backend não está respondendo. Continuando mesmo assim...');
+    } else {
+      logger.info('✅ Backend está respondendo');
     }
 
-    logger.info('');
-    logger.info('✅ Data Collector inicializado com sucesso!');
-    logger.info('');
+    // 3. Inicializar PLC Pool Manager
+    logger.info('🔌 Inicializando PLC Pool Manager...');
+    plcPoolManager = new PlcPoolManager(apiClient);
+    await plcPoolManager.start();
+    logger.info('✅ PLC Pool Manager iniciado');
 
-  } catch (error) {
-    logger.error('❌ Erro ao inicializar Data Collector:', error);
+    // 4. Inicializar Production Monitor
+    logger.info('📊 Inicializando Production Monitor...');
+    productionMonitor = new ProductionMonitor(apiClient);
+    await productionMonitor.start();
+    logger.info('✅ Production Monitor iniciado');
+
+    // 5. Inicializar Health Check Server
+    logger.info('🏥 Inicializando Health Check Server...');
+    healthCheck = new HealthCheck(
+      HEALTH_CHECK_PORT,
+      apiClient,
+      plcPoolManager,
+      productionMonitor
+    );
+    await healthCheck.start();
+    logger.info(`✅ Health Check Server rodando na porta ${HEALTH_CHECK_PORT}`);
+
+    logger.info('');
+    logger.info('================================================');
+    logger.info('  ✅ MES DATA COLLECTOR INICIADO COM SUCESSO');
+    logger.info('================================================');
+    logger.info('');
+    logger.info(`📡 Backend API: ${BACKEND_API_URL}`);
+    logger.info(`🏥 Health Check: http://localhost:${HEALTH_CHECK_PORT}/health`);
+    logger.info('');
+    
+  } catch (error: any) {
+    logger.error('❌ Erro ao inicializar aplicação:', error);
     process.exit(1);
   }
 }
 
 /**
- * Desliga graciosamente
+ * Encerrar aplicação gracefully
  */
-async function shutdown(signal: string) {
+async function shutdown(): Promise<void> {
   logger.info('');
-  logger.info(`📥 Sinal ${signal} recebido, desligando...`);
-
+  logger.info('⏳ Encerrando Data Collector...');
+  
   try {
-    // Desligar Pool Manager
-    await plcPoolManager.shutdown();
+    // Parar serviços na ordem inversa
+    if (healthCheck) {
+      await healthCheck.stop();
+    }
+    
+    if (productionMonitor) {
+      productionMonitor.stop();
+    }
+    
+    if (plcPoolManager) {
+      await plcPoolManager.stop();
+    }
 
-    // Desconectar banco de dados
-    await disconnectDatabase();
-
-    logger.info('✅ Data Collector desligado com sucesso');
+    logger.info('✅ Data Collector encerrado com sucesso');
+    logger.info('');
+    
     process.exit(0);
-  } catch (error) {
-    logger.error('Erro ao desligar:', error);
+  } catch (error: any) {
+    logger.error('❌ Erro ao encerrar:', error);
     process.exit(1);
   }
 }
 
-// Tratar sinais de término
-process.on('SIGINT', () => shutdown('SIGINT'));
-process.on('SIGTERM', () => shutdown('SIGTERM'));
+// Event handlers para encerramento graceful
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
 
-// Tratar erros não tratados
-process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
-});
-
+// Handler para erros não tratados
 process.on('uncaughtException', (error) => {
-  logger.error('Uncaught Exception:', error);
-  shutdown('UNCAUGHT_EXCEPTION');
+  logger.error('❌ Uncaught Exception:', error);
+  shutdown();
 });
 
-// Iniciar aplicação
-initialize();
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('❌ Unhandled Rejection:', reason);
+  shutdown();
+});
 
+// Inicializar aplicação
+initialize();

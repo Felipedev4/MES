@@ -35,6 +35,7 @@ import sectorRoutes from './routes/sectorRoutes';
 import activityTypeRoutes from './routes/activityTypeRoutes';
 import defectRoutes from './routes/defectRoutes';
 import referenceTypeRoutes from './routes/referenceTypeRoutes';
+import dataCollectorRoutes from './routes/dataCollectorRoutes';
 
 // Services
 import { modbusService } from './services/modbusService';
@@ -112,6 +113,7 @@ app.use('/api/sectors', sectorRoutes);
 app.use('/api/activity-types', activityTypeRoutes);
 app.use('/api/defects', defectRoutes);
 app.use('/api/reference-types', referenceTypeRoutes);
+app.use('/api/data-collector', dataCollectorRoutes);
 
 // Handler de rotas não encontradas
 app.use(notFoundHandler);
