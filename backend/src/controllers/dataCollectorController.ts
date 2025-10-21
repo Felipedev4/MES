@@ -5,7 +5,7 @@ import { ApiKeyRequest } from '../middleware/apiKeyAuth';
 /**
  * Buscar todas as configurações de CLP ativas (para data-collector)
  */
-export async function getActivePlcConfigs(req: ApiKeyRequest, res: Response): Promise<void> {
+export async function getActivePlcConfigs(_req: ApiKeyRequest, res: Response): Promise<void> {
   try {
     const configs = await prisma.plcConfig.findMany({
       where: { active: true },
@@ -147,7 +147,7 @@ export async function receivePlcDataBatch(req: ApiKeyRequest, res: Response): Pr
 /**
  * Buscar ordens de produção ativas
  */
-export async function getActiveProductionOrders(req: ApiKeyRequest, res: Response): Promise<void> {
+export async function getActiveProductionOrders(_req: ApiKeyRequest, res: Response): Promise<void> {
   try {
     const orders = await prisma.productionOrder.findMany({
       where: {
@@ -182,7 +182,6 @@ export async function receiveProductionAppointment(req: ApiKeyRequest, res: Resp
       productionOrderId,
       quantity,
       timestamp,
-      plcDataId,
     } = req.body;
 
     // Validar campos obrigatórios
@@ -206,10 +205,11 @@ export async function receiveProductionAppointment(req: ApiKeyRequest, res: Resp
       return;
     }
 
-    // Criar apontamento
-    const appointment = await prisma.production.create({
+    // Criar apontamento (assumindo userId = 1 para apontamentos automáticos do data-collector)
+    const appointment = await prisma.productionAppointment.create({
       data: {
         productionOrderId: parseInt(productionOrderId),
+        userId: 1, // TODO: Criar usuário específico para data-collector
         quantity: parseFloat(quantity),
         productionDate: timestamp ? new Date(timestamp) : new Date(),
       },
