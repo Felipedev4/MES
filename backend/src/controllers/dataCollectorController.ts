@@ -95,7 +95,7 @@ export async function receivePlcData(req: ApiKeyRequest, res: Response): Promise
         plcRegisterId: parseInt(plcRegisterId),
         registerAddress: parseInt(registerAddress),
         registerName,
-        value: parseFloat(value),
+        value: parseInt(value),
         timestamp: timestamp ? new Date(timestamp) : new Date(),
         connected: connected !== false,
         errorMessage: errorMessage || null,
@@ -127,7 +127,7 @@ export async function receivePlcDataBatch(req: ApiKeyRequest, res: Response): Pr
         plcRegisterId: parseInt(item.plcRegisterId),
         registerAddress: parseInt(item.registerAddress),
         registerName: item.registerName,
-        value: parseFloat(item.value),
+        value: parseInt(item.value),
         timestamp: item.timestamp ? new Date(item.timestamp) : new Date(),
         connected: item.connected !== false,
         errorMessage: item.errorMessage || null,
@@ -210,8 +210,9 @@ export async function receiveProductionAppointment(req: ApiKeyRequest, res: Resp
       data: {
         productionOrderId: parseInt(productionOrderId),
         userId: 1, // TODO: Criar usuário específico para data-collector
-        quantity: parseFloat(quantity),
-        productionDate: timestamp ? new Date(timestamp) : new Date(),
+        quantity: parseInt(quantity),
+        automatic: true, // Marcar como apontamento automático
+        timestamp: timestamp ? new Date(timestamp) : new Date(),
       },
     });
 
@@ -220,7 +221,7 @@ export async function receiveProductionAppointment(req: ApiKeyRequest, res: Resp
       where: { id: parseInt(productionOrderId) },
       data: {
         producedQuantity: {
-          increment: parseFloat(quantity),
+          increment: parseInt(quantity),
         },
       },
     });
