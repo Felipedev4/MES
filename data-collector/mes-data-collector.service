@@ -1,0 +1,39 @@
+[Unit]
+Description=MES Data Collector Service
+Documentation=https://github.com/your-repo/mes
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/opt/mes/data-collector
+Environment="NODE_ENV=production"
+Environment="PATH=/usr/bin:/usr/local/bin"
+
+# Carregar variáveis de ambiente do arquivo .env
+EnvironmentFile=/opt/mes/data-collector/.env
+
+# Comando para iniciar o serviço
+ExecStart=/usr/bin/node /opt/mes/data-collector/dist/index.js
+
+# Reiniciar automaticamente em caso de falha
+Restart=always
+RestartSec=10
+
+# Timeout para start/stop
+TimeoutStartSec=30
+TimeoutStopSec=30
+
+# Logs
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mes-data-collector
+
+# Limites de recursos (opcional)
+LimitNOFILE=65536
+MemoryLimit=512M
+
+[Install]
+WantedBy=multi-user.target
+
