@@ -168,10 +168,17 @@ async function startServer(): Promise<void> {
     productionService.initialize(io);
 
     // Inicializar e conectar ao CLP Modbus (não bloquear se falhar)
-    try {
-      await modbusService.initialize();
-    } catch (error) {
-      console.warn('⚠️  CLP não conectado no início. Tentará reconectar automaticamente.');
+    // ATENÇÃO: Desabilitar quando usar Data Collector externo (Raspberry Pi)
+    const useExternalDataCollector = process.env.USE_EXTERNAL_DATA_COLLECTOR === 'true';
+    
+    if (!useExternalDataCollector) {
+      try {
+        await modbusService.initialize();
+      } catch (error) {
+        console.warn('⚠️  CLP não conectado no início. Tentará reconectar automaticamente.');
+      }
+    } else {
+      console.log('📡 Modbus interno DESABILITADO - usando Data Collector externo');
     }
 
     // Iniciar servidor HTTP
