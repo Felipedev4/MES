@@ -1,4 +1,4 @@
-import * as express from 'express';
+import express, { Application } from 'express';
 import { Server } from 'http';
 import { logger } from '../utils/logger';
 import { ApiClient } from './ApiClient';
@@ -9,7 +9,7 @@ import { ProductionMonitor } from './ProductionMonitor';
  * Servidor HTTP simples para health check
  */
 export class HealthCheck {
-  private app: express.Application;
+  private app: Application;
   private server: Server | null = null;
   private port: number;
   private apiClient: ApiClient;
