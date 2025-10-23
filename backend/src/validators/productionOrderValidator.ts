@@ -29,7 +29,7 @@ export const updateProductionOrderSchema = yup.object({
     plannedQuantity: yup.number().positive().integer(),
     producedQuantity: yup.number().integer().min(0),
     rejectedQuantity: yup.number().integer().min(0),
-    status: yup.string().oneOf(['PENDING', 'IN_PROGRESS', 'PAUSED', 'COMPLETED', 'CANCELLED']),
+    status: yup.string().oneOf(['PROGRAMMING', 'ACTIVE', 'PAUSED', 'FINISHED', 'CANCELLED']),
     priority: yup.number().integer().min(0),
     plannedStartDate: yup.date(),
     plannedEndDate: yup.date(),
@@ -56,7 +56,7 @@ export const updateStatusSchema = yup.object({
     id: yup.number().required().positive().integer(),
   }),
   body: yup.object({
-    status: yup.string().required().oneOf(['PENDING', 'IN_PROGRESS', 'PAUSED', 'COMPLETED', 'CANCELLED']),
+    status: yup.string().required().oneOf(['PROGRAMMING', 'ACTIVE', 'PAUSED', 'FINISHED', 'CANCELLED']),
   }),
 });
 

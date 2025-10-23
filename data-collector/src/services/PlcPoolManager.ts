@@ -1,6 +1,7 @@
 import { logger } from '../utils/logger';
 import { ApiClient, PlcConfigResponse } from './ApiClient';
 import { PlcConnection } from './PlcConnection';
+import { ProductionMonitor } from './ProductionMonitor';
 
 /**
  * Gerencia múltiplas conexões de CLP
@@ -9,11 +10,13 @@ import { PlcConnection } from './PlcConnection';
 export class PlcPoolManager {
   private connections: Map<number, PlcConnection> = new Map();
   private apiClient: ApiClient;
+  private productionMonitor: ProductionMonitor | null = null;
   private configPollInterval: NodeJS.Timeout | null = null;
   private isRunning: boolean = false;
 
-  constructor(apiClient: ApiClient) {
+  constructor(apiClient: ApiClient, productionMonitor?: ProductionMonitor) {
     this.apiClient = apiClient;
+    this.productionMonitor = productionMonitor || null;
   }
 
   /**
@@ -114,7 +117,7 @@ export class PlcPoolManager {
       } else {
         // Criar nova conexão
         logger.info(`➕ Adicionando CLP ${config.id}: ${config.name}`);
-        const connection = new PlcConnection(config, this.apiClient);
+        const connection = new PlcConnection(config, this.apiClient, this.productionMonitor || undefined);
         this.connections.set(config.id, connection);
         await connection.connect();
       }
@@ -178,5 +181,76 @@ export class PlcPoolManager {
   async reloadConfigurations(): Promise<void> {
     logger.info('🔄 Recarregando configurações manualmente...');
     await this.loadConfigurations();
+  }
+
+  /**
+   * Testar conexão com um PLC (sem adicionar à pool)
+   */
+  async testConnection(config: {
+    host: string;
+    port: number;
+    unitId: number;
+    timeout: number;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    latency?: number;
+    error?: string;
+  }> {
+    const startTime = Date.now();
+    
+    try {
+      // Criar configuração temporária
+      const tempConfig: PlcConfigResponse = {
+        id: -1, // ID temporário
+        name: 'Teste de Conexão',
+        host: config.host,
+        port: config.port,
+        unitId: config.unitId,
+        timeout: config.timeout,
+        pollingInterval: 1000,
+        reconnectInterval: 5000,
+        timeDivisor: 1,
+        active: true,
+        registers: [],
+      };
+
+      // ✅ Criar conexão temporária SEM reconexão automática
+      const tempConnection = new PlcConnection(tempConfig, this.apiClient, undefined, false);
+      
+      // Tentar conectar
+      const connected = await tempConnection.connect();
+      
+      const latency = Date.now() - startTime;
+      
+      // Desconectar imediatamente
+      tempConnection.disconnect();
+      
+      if (connected) {
+        logger.info(`✅ Teste de conexão bem-sucedido: ${config.host}:${config.port} (${latency}ms)`);
+        return {
+          success: true,
+          message: `Conexão estabelecida com sucesso (Latência: ${latency}ms)`,
+          latency,
+        };
+      } else {
+        logger.warn(`⚠️  Teste de conexão falhou: ${config.host}:${config.port}`);
+        return {
+          success: false,
+          message: 'Não foi possível conectar ao PLC',
+          error: 'Timeout ou recusa de conexão',
+        };
+      }
+    } catch (error: any) {
+      const latency = Date.now() - startTime;
+      logger.error(`❌ Erro no teste de conexão: ${error.message}`);
+      
+      return {
+        success: false,
+        message: 'Erro ao testar conexão',
+        latency,
+        error: error.message || 'Erro desconhecido',
+      };
+    }
   }
 }

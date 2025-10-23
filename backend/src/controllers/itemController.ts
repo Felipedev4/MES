@@ -2,24 +2,45 @@
  * Controller de Itens
  */
 
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { prisma } from '../config/database';
+import { AuthenticatedRequest, getCompanyFilter } from '../middleware/companyFilter';
 
 /**
  * Lista todos os itens
  */
-export async function listItems(req: Request, res: Response): Promise<void> {
+export async function listItems(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const { active } = req.query;
     
-    const where = active !== undefined ? { active: active === 'true' } : {};
+    const where: any = {
+      ...getCompanyFilter(req, false), // Filtra por empresa do usuário
+    };
+    
+    if (active !== undefined) {
+      where.active = active === 'true';
+    }
 
     const items = await prisma.item.findMany({
       where,
+      include: {
+        itemColors: {
+          include: {
+            color: true,
+          },
+        },
+      },
       orderBy: { name: 'asc' },
     });
 
-    res.json(items);
+    // Transformar dados para incluir array de cores
+    const itemsWithColors = items.map(item => ({
+      ...item,
+      colors: item.itemColors.map(ic => ic.color),
+      itemColors: undefined, // Remover para limpar resposta
+    }));
+
+    res.json(itemsWithColors);
   } catch (error) {
     console.error('Erro ao listar itens:', error);
     res.status(500).json({ error: 'Erro ao listar itens' });
@@ -29,16 +50,24 @@ export async function listItems(req: Request, res: Response): Promise<void> {
 /**
  * Busca item por ID
  */
-export async function getItem(req: Request, res: Response): Promise<void> {
+export async function getItem(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
 
-    const item = await prisma.item.findUnique({
-      where: { id: parseInt(id) },
+    const item = await prisma.item.findFirst({
+      where: { 
+        id: parseInt(id),
+        ...getCompanyFilter(req, false), // Filtra por empresa do usuário
+      },
       include: {
         productionOrders: {
           orderBy: { createdAt: 'desc' },
           take: 10,
+        },
+        itemColors: {
+          include: {
+            color: true,
+          },
         },
       },
     });
@@ -48,7 +77,14 @@ export async function getItem(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    res.json(item);
+    // Transformar dados para incluir array de cores
+    const itemWithColors = {
+      ...item,
+      colors: item.itemColors?.map(ic => ic.color) || [],
+      itemColors: undefined, // Remover para limpar resposta
+    };
+
+    res.json(itemWithColors);
   } catch (error) {
     console.error('Erro ao buscar item:', error);
     res.status(500).json({ error: 'Erro ao buscar item' });
@@ -58,8 +94,9 @@ export async function getItem(req: Request, res: Response): Promise<void> {
 /**
  * Cria novo item
  */
-export async function createItem(req: Request, res: Response): Promise<void> {
+export async function createItem(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
+    const companyId = req.user?.companyId; // Empresa do usuário autenticado
     const { code, name, description, unit, active = true } = req.body;
 
     // Verificar se código já existe
@@ -79,9 +116,11 @@ export async function createItem(req: Request, res: Response): Promise<void> {
         description,
         unit,
         active,
+        companyId, // Vincula à empresa do usuário
       },
     });
 
+    console.log(`✅ Item criado: ${item.code} - ${item.name} | Empresa: ${companyId}`);
     res.status(201).json(item);
   } catch (error) {
     console.error('Erro ao criar item:', error);
@@ -92,10 +131,10 @@ export async function createItem(req: Request, res: Response): Promise<void> {
 /**
  * Atualiza item
  */
-export async function updateItem(req: Request, res: Response): Promise<void> {
+export async function updateItem(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const data = req.body;
+    const { code, name, description, unit, active } = req.body;
 
     // Verificar se item existe
     const existingItem = await prisma.item.findUnique({
@@ -108,9 +147,9 @@ export async function updateItem(req: Request, res: Response): Promise<void> {
     }
 
     // Se mudando código, verificar se não existe outro com mesmo código
-    if (data.code && data.code !== existingItem.code) {
+    if (code && code !== existingItem.code) {
       const codeExists = await prisma.item.findUnique({
-        where: { code: data.code },
+        where: { code },
       });
 
       if (codeExists) {
@@ -119,9 +158,17 @@ export async function updateItem(req: Request, res: Response): Promise<void> {
       }
     }
 
+    // Preparar dados para atualização (apenas campos permitidos)
+    const updateData: any = {};
+    if (code !== undefined) updateData.code = code;
+    if (name !== undefined) updateData.name = name;
+    if (description !== undefined) updateData.description = description;
+    if (unit !== undefined) updateData.unit = unit;
+    if (active !== undefined) updateData.active = active;
+
     const item = await prisma.item.update({
       where: { id: parseInt(id) },
-      data,
+      data: updateData,
     });
 
     res.json(item);
@@ -134,7 +181,7 @@ export async function updateItem(req: Request, res: Response): Promise<void> {
 /**
  * Deleta item
  */
-export async function deleteItem(req: Request, res: Response): Promise<void> {
+export async function deleteItem(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
 

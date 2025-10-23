@@ -16,9 +16,12 @@ export const api = axios.create({
 // Interceptor para adicionar token JWT
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('@MES:token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('🔑 [API] Token sendo enviado:', token.substring(0, 50) + '...');
+    } else {
+      console.warn('⚠️ [API] Token não encontrado no localStorage');
     }
     return config;
   },
@@ -31,10 +34,11 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      // Token inválido ou expirado
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      // Token inválido, expirado ou sem permissão
+      localStorage.removeItem('@MES:token');
+      localStorage.removeItem('@MES:user');
+      localStorage.removeItem('@MES:company');
       window.location.href = '/login';
     }
     return Promise.reject(error);

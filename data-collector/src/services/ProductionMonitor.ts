@@ -83,7 +83,8 @@ export class ProductionMonitor {
   async recordProduction(
     productionOrderId: number,
     quantity: number,
-    plcDataId?: number
+    plcDataId?: number,
+    clpCounterValue?: number
   ): Promise<boolean> {
     try {
       const order = this.activeOrders.get(productionOrderId);
@@ -98,6 +99,7 @@ export class ProductionMonitor {
         quantity,
         timestamp: new Date(),
         plcDataId: plcDataId || null,
+        clpCounterValue: clpCounterValue || null,
       };
 
       const success = await this.apiClient.sendProductionAppointment(appointment);

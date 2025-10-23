@@ -52,17 +52,17 @@ async function initialize(): Promise<void> {
       logger.info('✅ Backend está respondendo');
     }
 
-    // 3. Inicializar PLC Pool Manager
-    logger.info('🔌 Inicializando PLC Pool Manager...');
-    plcPoolManager = new PlcPoolManager(apiClient);
-    await plcPoolManager.start();
-    logger.info('✅ PLC Pool Manager iniciado');
-
-    // 4. Inicializar Production Monitor
+    // 3. Inicializar Production Monitor (ANTES do PLC Pool Manager)
     logger.info('📊 Inicializando Production Monitor...');
     productionMonitor = new ProductionMonitor(apiClient);
     await productionMonitor.start();
     logger.info('✅ Production Monitor iniciado');
+
+    // 4. Inicializar PLC Pool Manager (COM ProductionMonitor)
+    logger.info('🔌 Inicializando PLC Pool Manager...');
+    plcPoolManager = new PlcPoolManager(apiClient, productionMonitor);
+    await plcPoolManager.start();
+    logger.info('✅ PLC Pool Manager iniciado (com apontamento automático habilitado)');
 
     // 5. Inicializar Health Check Server
     logger.info('🏥 Inicializando Health Check Server...');

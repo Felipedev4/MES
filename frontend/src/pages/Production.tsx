@@ -20,6 +20,8 @@ import {
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
 import SettingsInputAntennaIcon from '@mui/icons-material/SettingsInputAntenna';
+import { Assignment as ProductionIcon } from '@mui/icons-material';
+import PageHeader from '../components/PageHeader';
 import api from '../services/api';
 import { ProductionOrder, PlcStatus } from '../types';
 import { useSocket } from '../contexts/SocketContext';
@@ -166,12 +168,16 @@ const Production: React.FC = () => {
   const selectedOrder = orders.find(o => o.id === selectedOrderId);
 
   return (
-    <Box>
-      <Typography variant="h4" gutterBottom>
-        Apontamento de Produção
-      </Typography>
+    <Box sx={{ p: { xs: 2, sm: 0 } }}>
+      {/* Header Profissional */}
+      <PageHeader
+        icon={<ProductionIcon />}
+        title="Apontamento de Produção"
+        subtitle="Integração com CLP em tempo real para apontamento automático"
+        iconGradient="linear-gradient(135deg, #00897b 0%, #00695c 100%)"
+      />
 
-      <Grid container spacing={3}>
+      <Grid container spacing={{ xs: 2, md: 3 }}>
         {/* Status do CLP */}
         <Grid item xs={12}>
           <Paper sx={{ p: 2 }}>

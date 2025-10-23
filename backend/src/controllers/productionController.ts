@@ -4,6 +4,7 @@
 
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
+import { AuthenticatedRequest } from '../middleware/companyFilter';
 import { productionService } from '../services/productionService';
 import { modbusService } from '../services/modbusService';
 
@@ -12,15 +13,17 @@ import { modbusService } from '../services/modbusService';
  */
 export async function createAppointment(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const { productionOrderId, quantity, rejectedQuantity = 0, notes } = req.body;
-    const userId = req.userId!;
+    const { productionOrderId, quantity, rejectedQuantity = 0, notes, startTime, endTime } = req.body;
+    const userId = req.user?.userId!;
 
     const result = await productionService.createManualAppointment(
       productionOrderId,
       userId,
       quantity,
       rejectedQuantity,
-      notes
+      notes,
+      startTime ? new Date(startTime) : undefined,
+      endTime ? new Date(endTime) : undefined
     );
 
     res.status(201).json(result);
@@ -87,12 +90,14 @@ export async function getActiveOrder(_req: AuthRequest, res: Response): Promise<
 /**
  * Obtém estatísticas de produção
  */
-export async function getProductionStats(req: AuthRequest, res: Response): Promise<void> {
+export async function getProductionStats(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const { orderId } = req.query;
+    const companyId = req.user?.companyId;
 
     const stats = await productionService.getProductionStats(
-      orderId ? parseInt(orderId as string) : undefined
+      orderId ? parseInt(orderId as string) : undefined,
+      companyId
     );
 
     res.json(stats);

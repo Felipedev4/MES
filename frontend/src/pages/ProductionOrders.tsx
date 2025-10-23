@@ -13,7 +13,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Typography,
   IconButton,
   Chip,
   Dialog,
@@ -22,23 +21,36 @@ import {
   DialogActions,
   TextField,
   MenuItem,
+  Autocomplete,
+  Typography,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import AddIcon from '@mui/icons-material/Add';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import PaletteIcon from '@mui/icons-material/Palette';
 import { useForm, Controller } from 'react-hook-form';
+import PageHeader from '../components/PageHeader';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import api from '../services/api';
-import { ProductionOrder, Item, Mold, ProductionStatus } from '../types';
+import { ProductionOrder, Item, Mold, Color } from '../types';
 import { useSnackbar } from 'notistack';
+import {
+  getStatusLabel,
+  getStatusColor,
+  PRODUCTION_STATUS_OPTIONS,
+  getStatusIcon,
+} from '../utils/productionStatus';
 
 // Schema de validação
 const orderSchema = yup.object({
   orderNumber: yup.string().required('Número da ordem é obrigatório').max(50),
   itemId: yup.number().required('Item é obrigatório').positive(),
+  colorId: yup.number().nullable().positive(),
   moldId: yup.number().nullable().positive(),
   plannedQuantity: yup.number().required('Quantidade planejada é obrigatória').positive().integer(),
   priority: yup.number().min(0).integer(),
+  status: yup.string().oneOf(['PROGRAMMING', 'ACTIVE', 'PAUSED', 'FINISHED', 'CANCELLED']),
   plannedStartDate: yup.date().required('Data de início é obrigatória'),
   plannedEndDate: yup.date().required('Data de fim é obrigatória'),
   notes: yup.string().max(1000),
@@ -46,33 +58,39 @@ const orderSchema = yup.object({
 
 type OrderFormData = yup.InferType<typeof orderSchema>;
 
-// Helper: Converte Date para formato yyyy-MM-dd
-const formatDateForInput = (date: Date | string): string => {
+// Helper: Converte Date para formato yyyy-MM-ddTHH:mm (datetime-local)
+const formatDateTimeForInput = (date: Date | string): string => {
   const d = new Date(date);
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
 const ProductionOrders: React.FC = () => {
   const [orders, setOrders] = useState<ProductionOrder[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [molds, setMolds] = useState<Mold[]>([]);
+  const [itemColors, setItemColors] = useState<Color[]>([]);
+  const [selectedColor, setSelectedColor] = useState<Color | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<ProductionOrder | null>(null);
-  const { enqueueSnackbar } = useSnackbar();
+  const { enqueueSnackbar} = useSnackbar();
 
-  const { control, handleSubmit, reset, formState: { errors } } = useForm<OrderFormData>({
+  const { control, handleSubmit, reset, setValue, formState: { errors } } = useForm<OrderFormData>({
     resolver: yupResolver(orderSchema),
     defaultValues: {
       orderNumber: '',
       itemId: 0,
+      colorId: undefined,
       moldId: undefined,
       plannedQuantity: 0,
       priority: 0,
-      plannedStartDate: formatDateForInput(new Date()) as any,
-      plannedEndDate: formatDateForInput(new Date()) as any,
+      status: 'PROGRAMMING' as any,
+      plannedStartDate: formatDateTimeForInput(new Date()) as any,
+      plannedEndDate: formatDateTimeForInput(new Date()) as any,
       notes: '',
     },
   });
@@ -104,30 +122,52 @@ const ProductionOrders: React.FC = () => {
     }
   };
 
+  const loadItemColors = async (itemId: number) => {
+    try {
+      const response = await api.get<Color[]>(`/items/${itemId}/colors`);
+      setItemColors(response.data);
+    } catch (error) {
+      console.error('Erro ao carregar cores do item:', error);
+      setItemColors([]);
+    }
+  };
+
   useEffect(() => {
     loadOrders();
     loadItems();
     loadMolds();
   }, []);
 
-  const handleOpenDialog = (order?: ProductionOrder) => {
+  const handleOpenDialog = async (order?: ProductionOrder) => {
     if (order) {
       setEditingOrder(order);
       reset({
         ...order,
-        plannedStartDate: formatDateForInput(order.plannedStartDate) as any,
-        plannedEndDate: formatDateForInput(order.plannedEndDate) as any,
+        status: order.status as any,
+        plannedStartDate: formatDateTimeForInput(order.plannedStartDate) as any,
+        plannedEndDate: formatDateTimeForInput(order.plannedEndDate) as any,
       });
+      // Carregar cores do item
+      if (order.itemId) {
+        await loadItemColors(order.itemId);
+      }
+      if (order.color) {
+        setSelectedColor(order.color);
+      }
     } else {
       setEditingOrder(null);
+      setItemColors([]);
+      setSelectedColor(null);
       reset({
         orderNumber: '',
         itemId: 0,
+        colorId: undefined,
         moldId: undefined,
         plannedQuantity: 0,
         priority: 0,
-        plannedStartDate: formatDateForInput(new Date()) as any,
-        plannedEndDate: formatDateForInput(new Date()) as any,
+        status: 'PROGRAMMING' as any,
+        plannedStartDate: formatDateTimeForInput(new Date()) as any,
+        plannedEndDate: formatDateTimeForInput(new Date()) as any,
         notes: '',
       });
     }
@@ -137,6 +177,8 @@ const ProductionOrders: React.FC = () => {
   const handleCloseDialog = () => {
     setDialogOpen(false);
     setEditingOrder(null);
+    setItemColors([]);
+    setSelectedColor(null);
     reset();
   };
 
@@ -157,47 +199,40 @@ const ProductionOrders: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: ProductionStatus) => {
-    const colors = {
-      PENDING: 'default',
-      IN_PROGRESS: 'primary',
-      PAUSED: 'warning',
-      COMPLETED: 'success',
-      CANCELLED: 'error',
-    };
-    return colors[status] as any;
-  };
-
-  const getStatusLabel = (status: ProductionStatus) => {
-    const labels = {
-      PENDING: 'Pendente',
-      IN_PROGRESS: 'Em Andamento',
-      PAUSED: 'Pausada',
-      COMPLETED: 'Concluída',
-      CANCELLED: 'Cancelada',
-    };
-    return labels[status];
-  };
 
   return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Ordens de Produção</Typography>
+    <Box sx={{ maxWidth: '100%', overflow: 'hidden', p: { xs: 2, sm: 0 } }}>
+      <PageHeader
+        icon={<AssignmentIcon />}
+        title="Ordens de Produção"
+        subtitle="Gerenciamento de ordens de produção"
+        iconGradient="linear-gradient(135deg, #2196f3 0%, #1976d2 100%)"
+      />
+      
+      <Box display="flex" justifyContent="flex-end" mb={{ xs: 2, md: 3 }}>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => handleOpenDialog()}
+          size="small"
         >
           Nova Ordem
         </Button>
       </Box>
 
-      <TableContainer component={Paper}>
-        <Table>
+      <TableContainer 
+        component={Paper} 
+        sx={{ 
+          maxHeight: { xs: 'calc(100vh - 250px)', md: 'calc(100vh - 300px)' },
+          overflow: 'auto'
+        }}
+      >
+        <Table stickyHeader size="small">
           <TableHead>
             <TableRow>
               <TableCell>Nº Ordem</TableCell>
               <TableCell>Item</TableCell>
+              <TableCell>Cor</TableCell>
               <TableCell>Molde</TableCell>
               <TableCell>Planejado</TableCell>
               <TableCell>Produzido</TableCell>
@@ -212,6 +247,25 @@ const ProductionOrders: React.FC = () => {
               <TableRow key={order.id}>
                 <TableCell>{order.orderNumber}</TableCell>
                 <TableCell>{order.item?.name || '-'}</TableCell>
+                <TableCell>
+                  {order.color ? (
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <Box
+                        sx={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: '50%',
+                          bgcolor: order.color.hexCode || '#ccc',
+                          border: '2px solid #fff',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                        }}
+                      />
+                      <Typography variant="body2">{order.color.name}</Typography>
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">-</Typography>
+                  )}
+                </TableCell>
                 <TableCell>{order.mold?.name || '-'}</TableCell>
                 <TableCell>{order.plannedQuantity}</TableCell>
                 <TableCell>{order.producedQuantity}</TableCell>
@@ -220,7 +274,7 @@ const ProductionOrders: React.FC = () => {
                 </TableCell>
                 <TableCell>
                   <Chip
-                    label={getStatusLabel(order.status)}
+                    label={`${getStatusIcon(order.status)} ${getStatusLabel(order.status)}`}
                     color={getStatusColor(order.status)}
                     size="small"
                   />
@@ -270,6 +324,17 @@ const ProductionOrders: React.FC = () => {
                   margin="normal"
                   error={!!errors.itemId}
                   helperText={errors.itemId?.message}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    field.onChange(value);
+                    if (value) {
+                      loadItemColors(Number(value));
+                    } else {
+                      setItemColors([]);
+                      setSelectedColor(null);
+                      setValue('colorId', undefined);
+                    }
+                  }}
                 >
                   {items.map((item) => (
                     <MenuItem key={item.id} value={item.id}>
@@ -279,6 +344,71 @@ const ProductionOrders: React.FC = () => {
                 </TextField>
               )}
             />
+
+            {/* Campo de Seleção de Cor */}
+            <Box sx={{ mt: 2 }}>
+              <Autocomplete
+                options={itemColors}
+                value={selectedColor}
+                onChange={(_, newValue) => {
+                  setSelectedColor(newValue);
+                  setValue('colorId', newValue?.id);
+                }}
+                getOptionLabel={(option) => option.name}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Cor do Item"
+                    placeholder={itemColors.length === 0 ? "Selecione um item primeiro" : "Selecione a cor"}
+                    disabled={itemColors.length === 0}
+                    helperText={itemColors.length === 0 ? "Item não possui cores cadastradas ou nenhum item selecionado" : ""}
+                    InputProps={{
+                      ...params.InputProps,
+                      startAdornment: (
+                        <>
+                          <PaletteIcon sx={{ ml: 1, mr: -0.5, color: 'text.secondary' }} />
+                          {params.InputProps.startAdornment}
+                        </>
+                      ),
+                    }}
+                  />
+                )}
+                renderOption={(props, option) => {
+                  const { key, ...optionProps } = props;
+                  return (
+                    <li key={key} {...optionProps}>
+                      <Box display="flex" alignItems="center" gap={1.5} width="100%">
+                        <Box
+                          sx={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: '50%',
+                            bgcolor: option.hexCode || '#ccc',
+                            border: '2px solid #fff',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                            flexShrink: 0,
+                          }}
+                        />
+                        <Box>
+                          <Typography variant="body2" fontWeight={500}>
+                            {option.name}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {option.code}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </li>
+                  );
+                }}
+              />
+              {selectedColor && (
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                  Cor selecionada: {selectedColor.name}
+                </Typography>
+              )}
+            </Box>
             <Controller
               name="moldId"
               control={control}
@@ -332,13 +462,34 @@ const ProductionOrders: React.FC = () => {
               )}
             />
             <Controller
+              name="status"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  select
+                  label="Status"
+                  fullWidth
+                  margin="normal"
+                  error={!!errors.status}
+                  helperText={errors.status?.message || 'Atenção: Apenas uma ordem pode estar Em Atividade por vez'}
+                >
+                  {PRODUCTION_STATUS_OPTIONS.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.icon} {option.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+            />
+            <Controller
               name="plannedStartDate"
               control={control}
               render={({ field }) => (
                 <TextField
                   {...field}
-                  label="Data de Início Planejada"
-                  type="date"
+                  label="Data e Hora Inicial Planejada"
+                  type="datetime-local"
                   fullWidth
                   margin="normal"
                   InputLabelProps={{ shrink: true }}
@@ -353,8 +504,8 @@ const ProductionOrders: React.FC = () => {
               render={({ field }) => (
                 <TextField
                   {...field}
-                  label="Data de Fim Planejada"
-                  type="date"
+                  label="Data e Hora Final Planejada"
+                  type="datetime-local"
                   fullWidth
                   margin="normal"
                   InputLabelProps={{ shrink: true }}

@@ -10,7 +10,14 @@ import {
   updateItem, 
   deleteItem 
 } from '../controllers/itemController';
-import { authenticateToken, authorizeRoles } from '../middleware/auth';
+import {
+  getItemColors,
+  updateItemColors,
+  addColorToItem,
+  removeColorFromItem,
+} from '../controllers/colorController';
+import { authenticateToken, requireRole } from '../middleware/auth';
+import { injectCompanyId } from '../middleware/companyFilter';
 import { validateRequest } from '../middleware/validator';
 import { 
   createItemSchema, 
@@ -23,12 +30,20 @@ const router = Router();
 
 // Todas as rotas requerem autenticação
 router.use(authenticateToken);
+router.use(injectCompanyId); // Injeta companyId do JWT
 
+// Rotas de Itens
 router.get('/', listItems);
 router.get('/:id', validateRequest(getItemSchema), getItem);
-router.post('/', authorizeRoles('ADMIN', 'MANAGER', 'SUPERVISOR'), validateRequest(createItemSchema), createItem);
-router.put('/:id', authorizeRoles('ADMIN', 'MANAGER', 'SUPERVISOR'), validateRequest(updateItemSchema), updateItem);
-router.delete('/:id', authorizeRoles('ADMIN', 'MANAGER'), validateRequest(deleteItemSchema), deleteItem);
+router.post('/', requireRole('ADMIN', 'MANAGER', 'SUPERVISOR'), validateRequest(createItemSchema), createItem);
+router.put('/:id', requireRole('ADMIN', 'MANAGER', 'SUPERVISOR'), validateRequest(updateItemSchema), updateItem);
+router.delete('/:id', requireRole('ADMIN', 'MANAGER'), validateRequest(deleteItemSchema), deleteItem);
+
+// Rotas de Cores por Item
+router.get('/:itemId/colors', getItemColors);
+router.put('/:itemId/colors', requireRole('ADMIN', 'MANAGER', 'SUPERVISOR'), updateItemColors);
+router.post('/:itemId/colors/:colorId', requireRole('ADMIN', 'MANAGER', 'SUPERVISOR'), addColorToItem);
+router.delete('/:itemId/colors/:colorId', requireRole('ADMIN', 'MANAGER', 'SUPERVISOR'), removeColorFromItem);
 
 export default router;
 

@@ -1,0 +1,34 @@
+================================================================================
+SENHA DO POSTGRESQL ENCONTRADA
+================================================================================
+
+ARQUIVO: backend\.env
+
+SENHA: As09kl00__
+
+STRING DE CONEXÃO COMPLETA:
+DATABASE_URL="postgresql://postgres:As09kl00__@localhost:5432/mes_db?schema=public"
+
+Usuário: postgres
+Senha: As09kl00__
+Host: localhost
+Porta: 5432
+Banco: mes_db
+
+================================================================================
+COMO TESTAR A CONEXÃO:
+================================================================================
+
+1. Via psql:
+   $env:PGPASSWORD="As09kl00__"; psql -U postgres -d mes_db
+
+2. Via Prisma Studio:
+   cd backend
+   npm run prisma:studio
+
+3. Iniciar Backend:
+   cd backend
+   npm run dev
+
+================================================================================
+

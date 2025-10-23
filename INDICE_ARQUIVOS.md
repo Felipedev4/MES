@@ -17,6 +17,24 @@ Este documento lista todos os arquivos criados e modificados nesta implementaç�
 | `SUMARIO_EXECUTIVO.md` | Sumário executivo para apresentação | ✅ Criado |
 | `INDICE_ARQUIVOS.md` | Este arquivo - índice de navegação | ✅ Criado |
 
+### Novas Páginas (Outubro 2025)
+
+| Arquivo | Descrição | Status |
+|---------|-----------|--------|
+| `DASHBOARD_PRODUCAO.md` | Documentação completa do Dashboard de Produção | ✅ Criado |
+| `APONTAMENTO_PRODUCAO.md` | Documentação completa do Apontamento de Produção | ✅ Criado |
+| `RESUMO_NOVAS_PAGINAS.md` | Resumo das páginas criadas na sessão | ✅ Criado |
+| `GUIA_RAPIDO_NOVAS_PAGINAS.md` | Guia rápido de uso das novas páginas | ✅ Criado |
+| `CORRECOES_TYPESCRIPT.md` | Documentação das correções de erros TypeScript | ✅ Criado |
+| `FLUXO_NAVEGACAO_INJETORAS.md` | Documentação completa do fluxo Injetoras→Ordens→Dashboard | ✅ Criado |
+| `GUIA_RAPIDO_INJETORAS.md` | Guia rápido do fluxo de navegação | ✅ Criado |
+| `RESUMO_FINAL_SESSAO.md` | Resumo consolidado de toda a sessão de desenvolvimento | ✅ Criado |
+| `NAVEGACAO_RAPIDA.md` | Índice de navegação e acesso rápido a toda documentação | ✅ Criado |
+| `MELHORIAS_LAYOUT_INJETORAS.md` | Melhorias de layout: IP visível e cards organizados | ✅ Criado |
+| `CADASTRO_ATIVIDADES_TIPO.md` | Implementação do campo Tipo no cadastro de atividades | ✅ Criado |
+| `ATUALIZAR_BACKEND_ACTIVITY_TYPE.md` | Guia completo de atualização do backend para suportar campo type | ✅ Criado |
+| `RESOLVER_ERRO_500_ACTIVITY_TYPES.md` | Troubleshooting completo para resolver erro 500 | ✅ Criado |
+
 ### Documentos Existentes (Referência)
 
 | Arquivo | Descrição |
@@ -224,7 +242,11 @@ Alterações:
 
 ```
 frontend/src/pages/
-└── Companies.tsx                         ✅ Criado (350 linhas)
+├── Companies.tsx                         ✅ Criado (350 linhas)
+├── ProductionDashboard.tsx               ✅ Criado/Modificado (330 linhas)
+├── ProductionPosting.tsx                 ✅ Criado (361 linhas)
+├── Injectors.tsx                         ✅ Criado (167 linhas)
+└── OrderPanel.tsx                        ✅ Criado (235 linhas)
 ```
 
 **Companies.tsx** implementa:
@@ -233,7 +255,40 @@ frontend/src/pages/
 - Dialog de formulário
 - Validações
 - CRUD completo
-- Snackbar para feedback
+
+**ProductionDashboard.tsx** implementa:
+- Dashboard visual de produção
+- 5 cards interativos (Setup, Ciclo, Perda, Parada, Resumo)
+- Breadcrumb navegável
+- Design responsivo com Material-UI
+- Chips de status coloridos
+- Carrega dados dinâmicos via API (ordem por ID)
+- Integração completa com backend
+
+**ProductionPosting.tsx** implementa:
+- Apontamento automático via CLP
+- Apontamento manual de produção
+- Status em tempo real do CLP DVP-12SE
+- Monitoramento WebSocket
+- Validações de formulário
+- Notificações toast
+- Dual-column layout responsivo
+
+**Injectors.tsx** implementa:
+- Lista de CLPs/Injetoras cadastrados
+- Cards em grid responsivo
+- Ícones com gradientes
+- Navegação para ordens por CLP
+- Loading states
+- Mensagens quando vazio
+
+**OrderPanel.tsx** implementa:
+- Lista de ordens vinculadas a um CLP
+- Cards com informações completas da ordem
+- Chips de status (URGENTE, Em Atividade, Programação)
+- Breadcrumb navegável
+- Navegação para dashboard da ordem
+- Design responsivo
 
 **Nota:** Páginas para Setores, Tipos de Atividade, Defeitos e Tipos de Referência seguem o mesmo padrão e podem ser criadas similarmente.
 

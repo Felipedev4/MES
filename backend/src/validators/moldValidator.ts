@@ -10,6 +10,12 @@ export const createMoldSchema = yup.object({
     name: yup.string().required('Nome é obrigatório').min(1).max(200),
     description: yup.string().nullable().max(500),
     cavities: yup.number().required().positive().integer().min(1),
+    activeCavities: yup.number().nullable().positive().integer().min(1)
+      .test('max-cavities', 'Cavidades ativas não pode ser maior que o total de cavidades', function(value) {
+        if (!value) return true; // Se null, passa
+        const { cavities } = this.parent;
+        return value <= cavities;
+      }),
     cycleTime: yup.number().nullable().positive(),
     active: yup.boolean().default(true),
     maintenanceDate: yup.date().nullable(),
@@ -25,6 +31,12 @@ export const updateMoldSchema = yup.object({
     name: yup.string().min(1).max(200),
     description: yup.string().nullable().max(500),
     cavities: yup.number().positive().integer().min(1),
+    activeCavities: yup.number().nullable().positive().integer().min(1)
+      .test('max-cavities', 'Cavidades ativas não pode ser maior que o total de cavidades', function(value) {
+        if (!value) return true; // Se null, passa
+        const { cavities } = this.parent;
+        return value <= cavities;
+      }),
     cycleTime: yup.number().nullable().positive(),
     active: yup.boolean(),
     maintenanceDate: yup.date().nullable(),

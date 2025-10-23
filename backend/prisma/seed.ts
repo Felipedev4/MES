@@ -113,7 +113,7 @@ async function main() {
       plannedQuantity: 1000,
       producedQuantity: 0,
       rejectedQuantity: 0,
-      status: 'PENDING',
+      status: 'PROGRAMMING',
       priority: 1,
       plannedStartDate: new Date(),
       plannedEndDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // +7 dias

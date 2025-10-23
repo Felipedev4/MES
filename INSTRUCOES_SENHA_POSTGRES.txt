@@ -1,0 +1,120 @@
+================================================================================
+INSTRUÇÕES PARA CORRIGIR SENHA DO POSTGRESQL
+================================================================================
+
+PROBLEMA: A senha "postgres" não está funcionando
+
+SOLUÇÃO RÁPIDA:
+---------------
+
+1. Descobrir qual senha você usa no PostgreSQL:
+
+   Tente conectar manualmente com:
+   
+   psql -U postgres -d postgres
+   
+   Digite a senha quando pedida. Se conectar, anote a senha!
+
+
+2. Atualizar o arquivo backend\.env:
+
+   a) Abrir arquivo:
+      notepad backend\.env
+   
+   b) Encontrar linha que começa com DATABASE_URL=
+   
+   c) Modificar para:
+      DATABASE_URL="postgresql://postgres:SUA_SENHA_AQUI@localhost:5432/mes_db?schema=public"
+   
+   d) Salvar (Ctrl+S)
+
+
+3. Testar se funcionou:
+
+   cd backend
+   npm run dev
+   
+   Deve ver: ✅ Database connected successfully
+
+
+================================================================================
+SE NÃO SOUBER A SENHA - RESETAR:
+================================================================================
+
+OPÇÃO A: Via pgAdmin (Mais Fácil)
+----------------------------------
+1. Abrir pgAdmin (se instalado)
+2. Conectar ao servidor PostgreSQL local
+3. Se conectar → você já sabe a senha!
+4. Anotar e usar no passo 2 acima
+
+
+OPÇÃO B: Resetar Senha Manualmente
+-----------------------------------
+1. Encontrar arquivo pg_hba.conf:
+   Geralmente em: C:\Program Files\PostgreSQL\18\data\pg_hba.conf
+
+2. Abrir como Administrador:
+   notepad "C:\Program Files\PostgreSQL\18\data\pg_hba.conf"
+
+3. Procurar linha:
+   host    all             all             127.0.0.1/32            scram-sha-256
+
+4. Mudar TEMPORARIAMENTE para:
+   host    all             all             127.0.0.1/32            trust
+
+5. Salvar e reiniciar PostgreSQL:
+   Stop-Service postgresql-x64-18
+   Start-Service postgresql-x64-18
+
+6. Conectar SEM senha:
+   psql -U postgres
+
+7. Resetar senha (dentro do psql):
+   ALTER USER postgres PASSWORD 'nova_senha_aqui';
+   \q
+
+8. Reverter pg_hba.conf (IMPORTANTE!):
+   Voltar linha para: scram-sha-256
+   Reiniciar: Restart-Service postgresql-x64-18
+
+9. Usar nova senha no backend\.env
+
+
+================================================================================
+SENHAS COMUNS PARA TESTAR:
+================================================================================
+
+Tente estas no psql -U postgres:
+- postgres
+- admin  
+- root
+- 123456
+- (senha vazia - só pressione Enter)
+
+
+================================================================================
+VERIFICAR SE POSTGRES ESTÁ RODANDO:
+================================================================================
+
+Get-Service postgresql-x64-18
+
+Se Status = Stopped:
+    Start-Service postgresql-x64-18
+
+
+================================================================================
+DEPOIS DE CORRIGIR:
+================================================================================
+
+1. Backend deve iniciar:
+   cd backend
+   npm run dev
+   
+2. Ver mensagem:
+   ✅ Database connected successfully
+   
+3. Data collector deve funcionar sem timeout
+
+================================================================================
+

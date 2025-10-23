@@ -3,16 +3,28 @@
  */
 
 import api from './api';
-import { AuthResponse } from '../types';
+import { AuthResponse, LoginResponse, Company, User } from '../types';
 
 export const authService = {
-  login: async (email: string, password: string): Promise<AuthResponse> => {
-    const response = await api.post<AuthResponse>('/auth/login', { email, password });
+  login: async (email: string, password: string): Promise<LoginResponse> => {
+    const response = await api.post<LoginResponse>('/auth/login', { email, password });
     
-    // Salvar token e usuário no localStorage
-    localStorage.setItem('token', response.data.token);
-    localStorage.setItem('user', JSON.stringify(response.data.user));
+    // Salvar usuário no localStorage
+    localStorage.setItem('@MES:user', JSON.stringify(response.data.user));
     
+    // Se tem token (usuário com apenas 1 empresa), salvar
+    if (response.data.token) {
+      localStorage.setItem('@MES:token', response.data.token);
+    }
+    
+    return response.data;
+  },
+
+  selectCompany: async (userId: number, companyId: number): Promise<{ token: string; user: User; company: Company }> => {
+    const response = await api.post<{ token: string; user: User; company: Company }>('/auth/select-company', {
+      userId,
+      companyId,
+    });
     return response.data;
   },
 
@@ -24,28 +36,29 @@ export const authService = {
       role 
     });
     
-    localStorage.setItem('token', response.data.token);
-    localStorage.setItem('user', JSON.stringify(response.data.user));
+    localStorage.setItem('@MES:token', response.data.token);
+    localStorage.setItem('@MES:user', JSON.stringify(response.data.user));
     
     return response.data;
   },
 
   logout: () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    localStorage.removeItem('@MES:token');
+    localStorage.removeItem('@MES:user');
+    localStorage.removeItem('@MES:company');
   },
 
   getCurrentUser: () => {
-    const userStr = localStorage.getItem('user');
+    const userStr = localStorage.getItem('@MES:user');
     return userStr ? JSON.parse(userStr) : null;
   },
 
   getToken: () => {
-    return localStorage.getItem('token');
+    return localStorage.getItem('@MES:token');
   },
 
   isAuthenticated: () => {
-    return !!localStorage.getItem('token');
+    return !!localStorage.getItem('@MES:token');
   },
 };
 

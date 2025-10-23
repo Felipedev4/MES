@@ -2,17 +2,24 @@
  * Controller de Moldes
  */
 
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { prisma } from '../config/database';
+import { AuthenticatedRequest, getCompanyFilter } from '../middleware/companyFilter';
 
 /**
  * Lista todos os moldes
  */
-export async function listMolds(req: Request, res: Response): Promise<void> {
+export async function listMolds(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const { active } = req.query;
     
-    const where = active !== undefined ? { active: active === 'true' } : {};
+    const where: any = {
+      ...getCompanyFilter(req, false), // Filtra por empresa do usuário
+    };
+    
+    if (active !== undefined) {
+      where.active = active === 'true';
+    }
 
     const molds = await prisma.mold.findMany({
       where,
@@ -29,7 +36,7 @@ export async function listMolds(req: Request, res: Response): Promise<void> {
 /**
  * Busca molde por ID
  */
-export async function getMold(req: Request, res: Response): Promise<void> {
+export async function getMold(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
 
@@ -58,9 +65,10 @@ export async function getMold(req: Request, res: Response): Promise<void> {
 /**
  * Cria novo molde
  */
-export async function createMold(req: Request, res: Response): Promise<void> {
+export async function createMold(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
-    const { code, name, description, cavities, cycleTime, active = true, maintenanceDate } = req.body;
+    const companyId = req.user?.companyId; // Empresa do usuário autenticado
+    const { code, name, description, cavities, activeCavities, cycleTime, active = true, maintenanceDate } = req.body;
 
     // Verificar se código já existe
     const existingMold = await prisma.mold.findUnique({
@@ -78,12 +86,15 @@ export async function createMold(req: Request, res: Response): Promise<void> {
         name,
         description,
         cavities,
+        activeCavities: activeCavities !== undefined ? activeCavities : cavities, // Se não informar, usa o total de cavidades
         cycleTime,
         active,
         maintenanceDate,
+        companyId, // Vincula à empresa do usuário
       },
     });
 
+    console.log(`✅ Molde criado: ${mold.code} - ${mold.name} | Empresa: ${companyId}`);
     res.status(201).json(mold);
   } catch (error) {
     console.error('Erro ao criar molde:', error);
@@ -94,10 +105,13 @@ export async function createMold(req: Request, res: Response): Promise<void> {
 /**
  * Atualiza molde
  */
-export async function updateMold(req: Request, res: Response): Promise<void> {
+export async function updateMold(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
     const data = req.body;
+
+    // Remover companyId do data para evitar alteração
+    delete data.companyId;
 
     const existingMold = await prisma.mold.findUnique({
       where: { id: parseInt(id) },
@@ -134,7 +148,7 @@ export async function updateMold(req: Request, res: Response): Promise<void> {
 /**
  * Deleta molde
  */
-export async function deleteMold(req: Request, res: Response): Promise<void> {
+export async function deleteMold(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
 

@@ -32,9 +32,33 @@ const Login: React.FC = () => {
     setLoading(true);
 
     try {
-      await login(email, password);
+      const response = await login(email, password);
       enqueueSnackbar('Login realizado com sucesso!', { variant: 'success' });
-      navigate('/dashboard');
+      
+      // Aguardar um pouco para garantir que o estado foi atualizado
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Verificar se precisa selecionar empresa
+      if (response.requiresCompanySelection && response.companies.length > 1) {
+        navigate('/select-company', { 
+          replace: true,
+          state: { 
+            user: response.user,
+            companies: response.companies,
+          },
+        });
+        return;
+      }
+      
+      // Verificar se precisa trocar a senha
+      if (response.user.mustChangePassword === true) {
+        enqueueSnackbar('Você precisa alterar sua senha antes de continuar', { 
+          variant: 'warning' 
+        });
+        navigate('/change-password', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     } catch (err: any) {
       const message = err.response?.data?.error || 'Erro ao realizar login';
       setError(message);

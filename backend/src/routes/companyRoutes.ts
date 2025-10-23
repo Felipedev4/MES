@@ -135,5 +135,11 @@ router.put('/:id', validateRequest(updateCompanySchema), companyController.updat
  */
 router.delete('/:id', companyController.deleteCompany);
 
+// Rotas de vínculo User-Company
+router.get('/user/:userId', companyController.getUserCompanies);
+router.post('/link-user', companyController.linkUserToCompany);
+router.delete('/unlink-user/:userId/:companyId', companyController.unlinkUserFromCompany);
+router.post('/set-default', companyController.setDefaultCompany);
+
 export default router;
 

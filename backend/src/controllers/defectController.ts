@@ -24,11 +24,29 @@ export async function listDefects(req: Request, res: Response): Promise<void> {
             productionDefects: true,
           },
         },
+        defectSectors: {
+          include: {
+            sector: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+              },
+            },
+          },
+        },
       },
       orderBy: { name: 'asc' },
     });
 
-    res.json(defects);
+    // Transformar dados para incluir setores responsáveis
+    const defectsWithSectors = defects.map(defect => ({
+      ...defect,
+      responsibleSectors: defect.defectSectors.map(ds => ds.sector),
+      defectSectors: undefined, // Remover para simplificar retorno
+    }));
+
+    res.json(defectsWithSectors);
   } catch (error: any) {
     console.error('Erro ao listar defeitos:', error);
     res.status(500).json({ error: 'Erro ao listar defeitos' });
@@ -50,6 +68,17 @@ export async function getDefect(req: Request, res: Response): Promise<void> {
             productionDefects: true,
           },
         },
+        defectSectors: {
+          include: {
+            sector: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -58,7 +87,14 @@ export async function getDefect(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    res.json(defect);
+    // Transformar dados
+    const defectWithSectors = {
+      ...defect,
+      responsibleSectors: defect.defectSectors.map(ds => ds.sector),
+      defectSectors: undefined,
+    };
+
+    res.json(defectWithSectors);
   } catch (error: any) {
     console.error('Erro ao buscar defeito:', error);
     res.status(500).json({ error: 'Erro ao buscar defeito' });
@@ -70,7 +106,7 @@ export async function getDefect(req: Request, res: Response): Promise<void> {
  */
 export async function createDefect(req: Request, res: Response): Promise<void> {
   try {
-    const data = req.body;
+    const { sectorIds, ...data } = req.body;
 
     // Verificar se código já existe
     const existing = await prisma.defect.findUnique({
@@ -82,11 +118,39 @@ export async function createDefect(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    // Criar defeito com setores responsáveis
     const defect = await prisma.defect.create({
-      data,
+      data: {
+        ...data,
+        defectSectors: sectorIds && sectorIds.length > 0 ? {
+          create: sectorIds.map((sectorId: number) => ({
+            sectorId,
+          })),
+        } : undefined,
+      },
+      include: {
+        defectSectors: {
+          include: {
+            sector: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
     });
 
-    res.status(201).json(defect);
+    // Transformar dados
+    const defectWithSectors = {
+      ...defect,
+      responsibleSectors: defect.defectSectors.map(ds => ds.sector),
+      defectSectors: undefined,
+    };
+
+    res.status(201).json(defectWithSectors);
   } catch (error: any) {
     console.error('Erro ao criar defeito:', error);
     res.status(500).json({ error: 'Erro ao criar defeito' });
@@ -99,7 +163,7 @@ export async function createDefect(req: Request, res: Response): Promise<void> {
 export async function updateDefect(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const data = req.body;
+    const { sectorIds, ...data } = req.body;
 
     // Verificar se defeito existe
     const existing = await prisma.defect.findUnique({
@@ -123,12 +187,42 @@ export async function updateDefect(req: Request, res: Response): Promise<void> {
       }
     }
 
+    // Atualizar defeito e setores responsáveis
     const defect = await prisma.defect.update({
       where: { id: parseInt(id) },
-      data,
+      data: {
+        ...data,
+        defectSectors: sectorIds !== undefined ? {
+          // Deletar todos os vínculos existentes e recriar
+          deleteMany: {},
+          create: sectorIds.map((sectorId: number) => ({
+            sectorId,
+          })),
+        } : undefined,
+      },
+      include: {
+        defectSectors: {
+          include: {
+            sector: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
     });
 
-    res.json(defect);
+    // Transformar dados
+    const defectWithSectors = {
+      ...defect,
+      responsibleSectors: defect.defectSectors.map(ds => ds.sector),
+      defectSectors: undefined,
+    };
+
+    res.json(defectWithSectors);
   } catch (error: any) {
     console.error('Erro ao atualizar defeito:', error);
     res.status(500).json({ error: 'Erro ao atualizar defeito' });

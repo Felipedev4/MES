@@ -5,7 +5,7 @@
 import { Router } from 'express';
 import { Request, Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
-import { authenticateToken, authorizeRoles } from '../middleware/auth';
+import { authenticateToken, requireRole } from '../middleware/auth';
 import {
   listPlcConfigs,
   getPlcConfig,
@@ -143,7 +143,7 @@ router.get('/:id', ...idValidator, validate, getPlcConfig);
  */
 router.post(
   '/',
-  authorizeRoles('ADMIN', 'MANAGER'),
+  requireRole('ADMIN', 'MANAGER'),
   ...createPlcConfigValidator,
   validate,
   createPlcConfig
@@ -169,7 +169,7 @@ router.post(
  */
 router.put(
   '/:id',
-  authorizeRoles('ADMIN', 'MANAGER'),
+  requireRole('ADMIN', 'MANAGER'),
   ...updatePlcConfigValidator,
   validate,
   updatePlcConfig
@@ -195,7 +195,7 @@ router.put(
  */
 router.delete(
   '/:id',
-  authorizeRoles('ADMIN'),
+  requireRole('ADMIN'),
   ...idValidator,
   validate,
   deletePlcConfig
@@ -221,7 +221,7 @@ router.delete(
  */
 router.post(
   '/:id/activate',
-  authorizeRoles('ADMIN', 'MANAGER'),
+  requireRole('ADMIN', 'MANAGER'),
   ...idValidator,
   validate,
   activatePlcConfig
@@ -258,7 +258,7 @@ router.post(
  */
 router.post(
   '/test-connection',
-  authorizeRoles('ADMIN', 'MANAGER'),
+  requireRole('ADMIN', 'MANAGER'),
   testPlcConnection
 );
 
@@ -278,7 +278,7 @@ router.post(
  */
 router.post(
   '/registers',
-  authorizeRoles('ADMIN', 'MANAGER'),
+  requireRole('ADMIN', 'MANAGER'),
   ...createPlcRegisterValidator,
   validate,
   createPlcRegister
@@ -304,7 +304,7 @@ router.post(
  */
 router.put(
   '/registers/:id',
-  authorizeRoles('ADMIN', 'MANAGER'),
+  requireRole('ADMIN', 'MANAGER'),
   ...updatePlcRegisterValidator,
   validate,
   updatePlcRegister
@@ -330,7 +330,7 @@ router.put(
  */
 router.delete(
   '/registers/:id',
-  authorizeRoles('ADMIN', 'MANAGER'),
+  requireRole('ADMIN', 'MANAGER'),
   ...idValidator,
   validate,
   deletePlcRegister

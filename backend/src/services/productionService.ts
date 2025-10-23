@@ -117,29 +117,34 @@ export class ProductionService {
         },
       });
 
+      // ⚠️ CORREÇÃO: Usar counterValue (peças) e não quantity (tempo)
+      // quantity = tempo de ciclo
+      // counterValue = contador de peças
+      const piecesProduced = counterValue || 0;
+
       // Atualizar quantidade produzida na ordem
       const updatedOrder = await prisma.productionOrder.update({
         where: { id: this.activeOrderId },
         data: {
           producedQuantity: {
-            increment: quantity,
+            increment: piecesProduced, // ← CORRIGIDO: usar contador de peças
           },
           // Se atingiu quantidade planejada, marcar como completa
-          ...(order.producedQuantity + quantity >= order.plannedQuantity && {
-            status: 'COMPLETED',
+          ...(order.producedQuantity + piecesProduced >= order.plannedQuantity && {
+            status: 'FINISHED',
             endDate: new Date(),
           }),
         },
       });
 
-      console.log(`✅ Apontamento automático criado: ${quantity} peças`);
+      console.log(`✅ Apontamento automático criado: ${piecesProduced} peças (tempo: ${quantity})`);
 
       // Emitir evento via WebSocket
       if (this.io) {
         this.io.emit('production:update', {
           appointment,
           order: updatedOrder,
-          increment: quantity,
+          increment: piecesProduced, // ← CORRIGIDO: emitir peças, não tempo
           total: updatedOrder.producedQuantity,
         });
       }
@@ -157,7 +162,9 @@ export class ProductionService {
     userId: number,
     quantity: number,
     rejectedQuantity: number = 0,
-    notes?: string
+    notes?: string,
+    startTime?: Date,
+    endTime?: Date
   ): Promise<any> {
     const order = await prisma.productionOrder.findUnique({
       where: { id: productionOrderId },
@@ -167,67 +174,207 @@ export class ProductionService {
       throw new Error('Ordem de produção não encontrada');
     }
 
-    // Criar apontamento
-    const appointment = await prisma.productionAppointment.create({
-      data: {
+    // ⚠️ PREVENÇÃO DE DUPLICATAS - Verificar se já existe um apontamento manual muito recente
+    const now = new Date();
+    const timeWindow = new Date(now.getTime() - 5000); // 5 segundos antes
+    
+    const recentAppointment = await prisma.productionAppointment.findFirst({
+      where: {
         productionOrderId,
         userId,
-        quantity,
-        rejectedQuantity,
         automatic: false,
-        notes,
+        quantity,
+        timestamp: {
+          gte: timeWindow,
+        },
+      },
+      orderBy: {
+        timestamp: 'desc',
       },
     });
 
-    // Atualizar ordem de produção
-    const updatedOrder = await prisma.productionOrder.update({
-      where: { id: productionOrderId },
-      data: {
-        producedQuantity: {
-          increment: quantity,
+    // Se encontrou apontamento idêntico muito recente, avisar mas permitir (pode ser legítimo)
+    if (recentAppointment) {
+      console.warn(`⚠️  AVISO: Apontamento manual similar detectado (menos de 5s): Usuário ${userId}, OP ${productionOrderId}, Quantidade: ${quantity}`);
+      console.warn(`   Permitindo criação, mas pode ser duplicata. Verifique se é intencional.`);
+    }
+
+    // Calcular duração em segundos se tiver startTime e endTime
+    let durationSeconds: number | undefined;
+    if (startTime && endTime) {
+      durationSeconds = Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
+    }
+
+    // Usar transação para criar apontamento e defeito (se houver perda)
+    const result = await prisma.$transaction(async (tx) => {
+      // Criar apontamento manual
+      // ⚠️ ESTRUTURA PADRONIZADA:
+      // - clpCounterValue = quantidade de peças (igual automático)
+      // - quantity = tempo em segundos
+      // - durationSeconds = tempo em segundos (backup/referência)
+      const appointment = await tx.productionAppointment.create({
+        data: {
+          productionOrderId,
+          userId,
+          clpCounterValue: quantity,        // ← Peças no clpCounterValue
+          quantity: durationSeconds || 0,   // ← Tempo (segundos) no quantity
+          rejectedQuantity,
+          automatic: false,
+          notes,
+          startTime,
+          endTime,
+          durationSeconds,                  // ← Manter também para referência
         },
-        rejectedQuantity: {
-          increment: rejectedQuantity,
+      });
+
+      // Atualizar ordem de produção
+      const updatedOrder = await tx.productionOrder.update({
+        where: { id: productionOrderId },
+        data: {
+          producedQuantity: {
+            increment: quantity,
+          },
+          rejectedQuantity: {
+            increment: rejectedQuantity,
+          },
         },
-      },
+      });
+
+      // Se houver quantidade rejeitada, criar registro de defeito automaticamente
+      let productionDefect = null;
+      if (rejectedQuantity > 0) {
+        // Buscar defeito padrão para apontamentos manuais
+        const defaultDefect = await tx.defect.findUnique({
+          where: { code: 'MANUAL' },
+        });
+
+        if (defaultDefect) {
+          productionDefect = await tx.productionDefect.create({
+            data: {
+              productionOrderId,
+              defectId: defaultDefect.id,
+              quantity: rejectedQuantity,
+              notes: notes ? `Apontamento Manual - ${notes}` : 'Apontamento Manual',
+            },
+          });
+          console.log(`✅ Registro de perda criado automaticamente: ${rejectedQuantity} peças rejeitadas (Defeito ID: ${defaultDefect.id})`);
+        } else {
+          console.warn('⚠️  Defeito padrão "MANUAL" não encontrado. Perda não registrada automaticamente.');
+        }
+      }
+
+      return { appointment, order: updatedOrder, productionDefect };
     });
 
     // Emitir evento via WebSocket
     if (this.io) {
       this.io.emit('production:update', {
-        appointment,
-        order: updatedOrder,
+        appointment: result.appointment,
+        order: result.order,
         increment: quantity,
-        total: updatedOrder.producedQuantity,
+        total: result.order.producedQuantity,
+        isDuplicateWarning: !!recentAppointment,
+        productionDefect: result.productionDefect,
       });
     }
 
-    return { appointment, order: updatedOrder };
+    return result;
   }
 
   /**
    * Obtém estatísticas de produção em tempo real
    */
-  public async getProductionStats(orderId?: number): Promise<any> {
-    const where = orderId ? { productionOrderId: orderId } : {};
+  public async getProductionStats(orderId?: number, companyId?: number): Promise<any> {
+    const where: any = {};
+    
+    if (orderId) {
+      where.productionOrderId = orderId;
+    }
+    
+    if (companyId) {
+      where.productionOrder = { companyId };
+    }
 
-    const stats = await prisma.productionAppointment.aggregate({
+    // Buscar apontamentos para calcular peças e tempo corretamente
+    // ⚠️ ESTRUTURA PADRONIZADA:
+    // - TODOS: clpCounterValue = peças
+    // - quantity = tempo (auto: ciclo, manual: segundos)
+    const appointments = await prisma.productionAppointment.findMany({
       where,
-      _sum: {
+      select: {
+        automatic: true,
         quantity: true,
+        clpCounterValue: true,
+        durationSeconds: true,
         rejectedQuantity: true,
       },
-      _count: true,
     });
 
+    // Calcular totais
+    let totalProduced = 0;
+    let totalRejected = 0;
+    let totalTimeSeconds = 0;
+    let manualAppointments = 0;
+    let automaticAppointments = 0;
+
+    appointments.forEach(apt => {
+      // PEÇAS: sempre do clpCounterValue (padronizado)
+      totalProduced += apt.clpCounterValue || 0;
+      
+      // TEMPO: quantity para manuais (já em segundos)
+      if (apt.automatic) {
+        automaticAppointments++;
+      } else {
+        totalTimeSeconds += apt.quantity || 0; // quantity = segundos para manual
+        manualAppointments++;
+      }
+      
+      // Rejeitadas (não usado mais, buscar de production_defects)
+      totalRejected += apt.rejectedQuantity || 0;
+    });
+
+    // Buscar defeitos reais da tabela production_defects
+    const defects = await prisma.productionDefect.aggregate({
+      where: {
+        ...(orderId ? { productionOrderId: orderId } : {}),
+        ...(companyId ? { productionOrder: { companyId } } : {}),
+      },
+      _sum: {
+        quantity: true,
+      },
+    });
+
+    const totalDefects = defects._sum.quantity || 0;
+
     return {
-      totalProduced: stats._sum.quantity || 0,
-      totalRejected: stats._sum.rejectedQuantity || 0,
-      totalAppointments: stats._count,
-      qualityRate: stats._sum.quantity 
-        ? ((stats._sum.quantity - (stats._sum.rejectedQuantity || 0)) / stats._sum.quantity) * 100 
+      totalProduced,
+      totalRejected: totalDefects, // Usar defeitos da tabela correta
+      totalAppointments: appointments.length,
+      manualAppointments,
+      automaticAppointments,
+      totalTimeSeconds, // Tempo total de apontamentos manuais
+      totalTimeFormatted: this.formatSeconds(totalTimeSeconds),
+      qualityRate: totalProduced > 0 
+        ? ((totalProduced - totalDefects) / totalProduced) * 100 
         : 100,
     };
+  }
+
+  /**
+   * Formata segundos em formato legível
+   */
+  private formatSeconds(seconds: number): string {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m ${secs}s`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${secs}s`;
+    } else {
+      return `${secs}s`;
+    }
   }
 }
 

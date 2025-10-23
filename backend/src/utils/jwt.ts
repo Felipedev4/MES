@@ -7,6 +7,7 @@ import jwt, { SignOptions } from 'jsonwebtoken';
 interface JwtPayload {
   userId: number;
   role: string;
+  companyId?: number; // Empresa selecionada pelo usuário
 }
 
 /**

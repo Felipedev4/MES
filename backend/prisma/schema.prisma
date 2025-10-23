@@ -11,163 +11,248 @@ datasource db {
 
 /// Modelo de usuário para autenticação
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  password  String
-  name      String
-  role      Role     @default(OPERATOR)
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 Int       @id @default(autoincrement())
+  email              String    @unique
+  password           String
+  name               String
+  role               Role      @default(OPERATOR)
+  active             Boolean   @default(true)
+  mustChangePassword Boolean   @default(true) // Forçar troca de senha no primeiro login
+  lastPasswordChange DateTime?
+  phone              String?
+  department         String?
+  employeeCode       String?   @unique
+  selectedCompanyId  Int? // Empresa atualmente selecionada pelo usuário
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   productionAppointments ProductionAppointment[]
   downtimes              Downtime[]
+  cycleChanges           CycleChange[]
+  userCompanies          UserCompany[]
+  selectedCompany        Company?                @relation("UserSelectedCompany", fields: [selectedCompanyId], references: [id])
 
   @@map("users")
 }
 
 enum Role {
-  ADMIN
-  MANAGER
-  SUPERVISOR
-  OPERATOR
+  ADMIN // Administrador do sistema
+  DIRECTOR // Diretoria
+  MANAGER // Gerente
+  SUPERVISOR // Supervisor
+  LEADER // Líder
+  OPERATOR // Operador
+}
+
+/// Modelo de Permissões por Role
+model RolePermission {
+  id        Int      @id @default(autoincrement())
+  role      Role
+  resource  String // Nome do recurso (ex: "users", "production_orders", etc)
+  canView   Boolean  @default(false)
+  canCreate Boolean  @default(false)
+  canEdit   Boolean  @default(false)
+  canDelete Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([role, resource])
+  @@map("role_permissions")
 }
 
 /// Modelo de Item/Produto
 model Item {
-  id              Int            @id @default(autoincrement())
-  code            String         @unique
-  name            String
-  description     String?
-  unit            String         // Unidade de medida (pç, kg, m, etc)
-  referenceTypeId Int?
-  active          Boolean        @default(true)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-
-  referenceType    ReferenceType? @relation(fields: [referenceTypeId], references: [id])
-  productionOrders ProductionOrder[]
-
-  @@map("items")
-}
-
-/// Modelo de Molde/Ferramenta
-model Mold {
   id              Int      @id @default(autoincrement())
   code            String   @unique
   name            String
   description     String?
-  cavities        Int      @default(1) // Número de cavidades
-  cycleTime       Float?   // Tempo de ciclo esperado em segundos
+  unit            String // Unidade de medida (pç, kg, m, etc)
+  referenceTypeId Int?
+  companyId       Int? // Empresa dona do item
   active          Boolean  @default(true)
-  maintenanceDate DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  referenceType    ReferenceType?    @relation(fields: [referenceTypeId], references: [id])
+  company          Company?          @relation(fields: [companyId], references: [id])
   productionOrders ProductionOrder[]
+  itemColors       ItemColor[] // Cores disponíveis para este item
+
+  @@map("items")
+}
+
+/// Modelo de Cor
+model Color {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  hexCode     String? // Código hexadecimal da cor (#RRGGBB)
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  itemColors       ItemColor[]       // Itens que possuem esta cor
+  productionOrders ProductionOrder[] // Ordens de produção com esta cor
+
+  @@map("colors")
+}
+
+/// Relacionamento Muitos-para-Muitos: Item <-> Cor
+model ItemColor {
+  id        Int      @id @default(autoincrement())
+  itemId    Int
+  colorId   Int
+  createdAt DateTime @default(now())
+
+  item  Item  @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  color Color @relation(fields: [colorId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, colorId]) // Um item não pode ter a mesma cor duplicada
+  @@map("item_colors")
+}
+
+/// Modelo de Molde/Ferramenta
+model Mold {
+  id              Int       @id @default(autoincrement())
+  code            String    @unique
+  name            String
+  description     String?
+  cavities        Int       @default(1) // Número total de cavidades
+  activeCavities  Int? // Número de cavidades ativas/funcionais para produção
+  cycleTime       Float? // Tempo de ciclo esperado em segundos
+  companyId       Int? // Empresa dona do molde
+  active          Boolean   @default(true)
+  maintenanceDate DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  company           Company?           @relation(fields: [companyId], references: [id])
+  productionOrders  ProductionOrder[]
+  maintenanceAlerts MaintenanceAlert[]
+  emailLogs         EmailLog[]
 
   @@map("molds")
 }
 
 /// Modelo de Ordem de Produção
 model ProductionOrder {
-  id               Int                  @id @default(autoincrement())
-  orderNumber      String               @unique
+  id               Int              @id @default(autoincrement())
+  orderNumber      String           @unique
   itemId           Int
+  colorId          Int? // Cor do item para esta ordem
   moldId           Int?
+  plcConfigId      Int? // CLP/Injetora vinculada à ordem
   companyId        Int?
   sectorId         Int?
   plannedQuantity  Int
-  producedQuantity Int                  @default(0)
-  rejectedQuantity Int                  @default(0)
-  status           ProductionStatus     @default(PENDING)
-  priority         Int                  @default(0)
+  producedQuantity Int              @default(0)
+  rejectedQuantity Int              @default(0)
+  status           ProductionStatus @default(PROGRAMMING)
+  priority         Int              @default(0)
   startDate        DateTime?
   endDate          DateTime?
   plannedStartDate DateTime
   plannedEndDate   DateTime
   notes            String?
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @updatedAt
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
   item                   Item                    @relation(fields: [itemId], references: [id])
+  color                  Color?                  @relation(fields: [colorId], references: [id])
   mold                   Mold?                   @relation(fields: [moldId], references: [id])
+  plcConfig              PlcConfig?              @relation(fields: [plcConfigId], references: [id])
   company                Company?                @relation(fields: [companyId], references: [id])
   sector                 Sector?                 @relation(fields: [sectorId], references: [id])
   productionAppointments ProductionAppointment[]
   downtimes              Downtime[]
   productionDefects      ProductionDefect[]
+  cycleChanges           CycleChange[]
 
+  @@index([status])
+  @@index([priority, plannedStartDate])
+  @@index([plcConfigId, status])
   @@map("production_orders")
 }
 
 enum ProductionStatus {
-  PENDING
-  IN_PROGRESS
-  PAUSED
-  COMPLETED
-  CANCELLED
+  PROGRAMMING // Programação
+  ACTIVE // Em Atividade (somente uma por vez)
+  PAUSED // Pausada
+  FINISHED // Encerrada
+  CANCELLED // Cancelada
 }
 
 /// Modelo de Apontamento de Produção
 model ProductionAppointment {
-  id                Int              @id @default(autoincrement())
+  id                Int       @id @default(autoincrement())
   productionOrderId Int
   userId            Int
   quantity          Int
-  rejectedQuantity  Int              @default(0)
-  timestamp         DateTime         @default(now())
-  automatic         Boolean          @default(false) // Se foi apontamento automático via CLP
-  clpCounterValue   Int?             // Valor do contador do CLP no momento
+  rejectedQuantity  Int       @default(0)
+  timestamp         DateTime  @default(now())
+  startTime         DateTime? // Data/hora de início (apenas para apontamentos manuais)
+  endTime           DateTime? // Data/hora de fim (apenas para apontamentos manuais)
+  durationSeconds   Int? // Duração em segundos (calculado de endTime - startTime para manuais)
+  automatic         Boolean   @default(false) // Se foi apontamento automático via CLP
+  clpCounterValue   Int? // Valor do contador do CLP no momento
   notes             String?
-  createdAt         DateTime         @default(now())
+  createdAt         DateTime  @default(now())
 
   productionOrder ProductionOrder @relation(fields: [productionOrderId], references: [id])
   user            User            @relation(fields: [userId], references: [id])
 
+  @@index([productionOrderId, timestamp])
+  @@index([timestamp])
+  @@index([startTime])
+  @@index([endTime])
   @@map("production_appointments")
 }
 
 /// Modelo de Paradas (Downtime)
 model Downtime {
-  id                Int           @id @default(autoincrement())
+  id                Int          @id @default(autoincrement())
   productionOrderId Int?
   activityTypeId    Int?
+  defectId          Int? // Defeito associado à parada (para notificações automáticas)
   type              DowntimeType
   reason            String
   description       String?
   responsibleId     Int?
   startTime         DateTime
   endTime           DateTime?
-  duration          Int?          // Duração em segundos (calculado)
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  duration          Int? // Duração em segundos (calculado)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 
   productionOrder ProductionOrder? @relation(fields: [productionOrderId], references: [id])
   responsible     User?            @relation(fields: [responsibleId], references: [id])
   activityType    ActivityType?    @relation(fields: [activityTypeId], references: [id])
+  defect          Defect?          @relation(fields: [defectId], references: [id])
 
+  @@index([productionOrderId, startTime])
+  @@index([productionOrderId, endTime])
   @@map("downtimes")
 }
 
 enum DowntimeType {
-  PRODUCTIVE      // Paradas produtivas (setup, troca de molde, etc)
-  UNPRODUCTIVE    // Paradas improdutivas (quebra, falta de material, etc)
-  PLANNED         // Paradas planejadas (manutenção preventiva, etc)
+  PRODUCTIVE // Paradas produtivas (setup, troca de molde, etc)
+  UNPRODUCTIVE // Paradas improdutivas (quebra, falta de material, etc)
+  PLANNED // Paradas planejadas (manutenção preventiva, etc)
 }
 
 /// Modelo de Dados do CLP (histórico de leituras)
 model PlcData {
-  id               Int      @id @default(autoincrement())
-  plcRegisterId    Int?     // Referência ao registro (opcional para compatibilidade)
-  registerAddress  Int      // Endereço do registro (D33 = 33, D40 = 40, etc)
-  registerName     String?  // Nome do registro (D33, D40, etc)
-  value            Int      // Valor lido
-  timestamp        DateTime @default(now())
-  connected        Boolean  @default(true)
-  errorMessage     String?
+  id              Int      @id @default(autoincrement())
+  plcRegisterId   Int? // Referência ao registro (opcional para compatibilidade)
+  registerAddress Int // Endereço do registro (D33 = 33, D40 = 40, etc)
+  registerName    String? // Nome do registro (D33, D40, etc)
+  value           Int // Valor lido
+  timestamp       DateTime @default(now())
+  connected       Boolean  @default(true)
+  errorMessage    String?
 
-  plcRegister      PlcRegister? @relation(fields: [plcRegisterId], references: [id], onDelete: SetNull)
+  plcRegister PlcRegister? @relation(fields: [plcRegisterId], references: [id], onDelete: SetNull)
 
   @@index([registerAddress, timestamp])
   @@index([plcRegisterId, timestamp])
@@ -187,72 +272,99 @@ model SystemConfig {
 
 /// Modelo de Empresa
 model Company {
-  id               Int               @id @default(autoincrement())
-  code             String            @unique
-  name             String
-  tradeName        String?           // Nome fantasia
-  cnpj             String?           @unique
-  address          String?
-  phone            String?
-  email            String?
-  active           Boolean           @default(true)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id        Int      @id @default(autoincrement())
+  code      String   @unique
+  name      String
+  tradeName String? // Nome fantasia
+  cnpj      String?  @unique
+  address   String?
+  phone     String?
+  email     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  sectors          Sector[]
-  productionOrders ProductionOrder[]
+  items             Item[]
+  molds             Mold[]
+  sectors           Sector[]
+  productionOrders  ProductionOrder[]
+  userCompanies     UserCompany[]
+  selectedByUsers   User[]             @relation("UserSelectedCompany")
+  emailConfigs      EmailConfig[]
+  maintenanceAlerts MaintenanceAlert[]
 
   @@map("companies")
 }
 
 /// Modelo de Setor
 model Sector {
-  id               Int               @id @default(autoincrement())
+  id               Int      @id @default(autoincrement())
   companyId        Int
-  code             String            @unique
+  code             String   @unique
   name             String
   description      String?
-  active           Boolean           @default(true)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  email            String? // Email do setor para notificações
+  sendEmailOnAlert Boolean  @default(false) // Flag para enviar email em alertas de paradas
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   company          Company           @relation(fields: [companyId], references: [id])
   plcConfigs       PlcConfig[]
   productionOrders ProductionOrder[]
+  defectSectors    DefectSector[] // Defeitos que este setor é responsável por resolver
 
   @@map("sectors")
 }
 
 /// Modelo de Tipo de Atividade
 model ActivityType {
-  id          Int        @id @default(autoincrement())
-  code        String     @unique
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
   name        String
   description String?
-  color       String?    // Cor para visualização (hex)
-  active      Boolean    @default(true)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  type        String   @default("UNPRODUCTIVE") // PRODUCTIVE ou UNPRODUCTIVE
+  color       String? // Cor para visualização (hex)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  downtimes   Downtime[]
+  downtimes Downtime[]
 
   @@map("activity_types")
 }
 
 /// Modelo de Defeito
 model Defect {
-  id                Int               @id @default(autoincrement())
-  code              String            @unique
-  name              String
-  description       String?
-  severity          DefectSeverity    @default(MEDIUM)
-  active            Boolean           @default(true)
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  id          Int            @id @default(autoincrement())
+  code        String         @unique
+  name        String
+  description String?
+  severity    DefectSeverity @default(MEDIUM)
+  active      Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
   productionDefects ProductionDefect[]
+  defectSectors     DefectSector[] // Setores responsáveis por resolver este defeito
+  downtimes         Downtime[] // Paradas associadas a este defeito
 
   @@map("defects")
+}
+
+/// Relacionamento Muitos-para-Muitos: Defect <-> Sector
+/// Define quais setores são responsáveis por resolver cada tipo de defeito
+model DefectSector {
+  id        Int      @id @default(autoincrement())
+  defectId  Int
+  sectorId  Int
+  createdAt DateTime @default(now())
+
+  defect Defect @relation(fields: [defectId], references: [id], onDelete: Cascade)
+  sector Sector @relation(fields: [sectorId], references: [id], onDelete: Cascade)
+
+  @@unique([defectId, sectorId]) // Um defeito não pode ter o mesmo setor duplicado
+  @@map("defect_sectors")
 }
 
 enum DefectSeverity {
@@ -272,64 +384,165 @@ model ReferenceType {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  items       Item[]
+  items Item[]
 
   @@map("reference_types")
 }
 
 /// Modelo de Defeito de Produção
 model ProductionDefect {
-  id                Int             @id @default(autoincrement())
+  id                Int      @id @default(autoincrement())
   productionOrderId Int
   defectId          Int
   quantity          Int
-  timestamp         DateTime        @default(now())
+  timestamp         DateTime @default(now())
   notes             String?
-  createdAt         DateTime        @default(now())
+  createdAt         DateTime @default(now())
 
-  productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id])
-  defect            Defect          @relation(fields: [defectId], references: [id])
+  productionOrder ProductionOrder @relation(fields: [productionOrderId], references: [id])
+  defect          Defect          @relation(fields: [defectId], references: [id])
 
   @@map("production_defects")
 }
 
+/// Modelo de Alteração de Ciclo
+model CycleChange {
+  id                Int      @id @default(autoincrement())
+  productionOrderId Int
+  previousCycle     Float? // Ciclo anterior em segundos (null se for o primeiro)
+  newCycle          Float // Novo ciclo em segundos
+  reason            String // Motivo da alteração
+  userId            Int? // Usuário responsável pela alteração
+  timestamp         DateTime @default(now())
+  createdAt         DateTime @default(now())
+
+  productionOrder ProductionOrder @relation(fields: [productionOrderId], references: [id])
+  user            User?           @relation(fields: [userId], references: [id])
+
+  @@map("cycle_changes")
+}
+
 /// Modelo de Configuração do CLP
 model PlcConfig {
-  id                Int          @id @default(autoincrement())
-  name              String       // Nome identificador do CLP
-  host              String       // IP do CLP
-  port              Int          @default(502)
-  unitId            Int          @default(1)
-  timeout           Int          @default(5000)
-  pollingInterval   Int          @default(1000) // Intervalo de polling em ms
-  reconnectInterval Int          @default(10000)
+  id                Int      @id @default(autoincrement())
+  name              String // Nome identificador do CLP
+  host              String // IP do CLP
+  port              Int      @default(502)
+  unitId            Int      @default(1)
+  timeout           Int      @default(5000)
+  pollingInterval   Int      @default(1000) // Intervalo de polling em ms
+  reconnectInterval Int      @default(10000)
+  timeDivisor       Int      @default(10) @map("time_divisor") // Divisor para conversão do tempo coletado (D33): 1=segundos, 10=décimos, 100=centésimos, 1000=milissegundos
   sectorId          Int?
-  active            Boolean      @default(true)
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  sector      Sector?        @relation(fields: [sectorId], references: [id])
-  registers   PlcRegister[]
+  sector           Sector?           @relation(fields: [sectorId], references: [id])
+  registers        PlcRegister[]
+  productionOrders ProductionOrder[] // Ordens vinculadas a este CLP
 
   @@map("plc_configs")
 }
 
 /// Modelo de Registros do CLP
 model PlcRegister {
-  id              Int       @id @default(autoincrement())
+  id              Int      @id @default(autoincrement())
   plcConfigId     Int
-  registerName    String    // Ex: "D33", "D34", etc
-  registerAddress Int       // Endereço numérico do registro
-  description     String?   // Descrição do que o registro representa
-  dataType        String    @default("INT16") // INT16, INT32, FLOAT, etc
-  enabled         Boolean   @default(true)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  registerName    String // Ex: "D33", "D34", etc
+  registerAddress Int // Endereço numérico do registro
+  description     String? // Descrição do que o registro representa
+  dataType        String   @default("INT16") // INT16, INT32, FLOAT, etc
+  registerPurpose String?  @map("register_purpose") // PRODUCTION_COUNTER, CYCLE_TIME, TEMPERATURE, PRESSURE, OTHER
+  enabled         Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  plcConfig       PlcConfig @relation(fields: [plcConfigId], references: [id], onDelete: Cascade)
-  plcDataHistory  PlcData[] // Histórico de leituras deste registro
+  plcConfig      PlcConfig @relation(fields: [plcConfigId], references: [id], onDelete: Cascade)
+  plcDataHistory PlcData[] // Histórico de leituras deste registro
 
   @@map("plc_registers")
 }
 
+/// Modelo de relação User-Company (Many-to-Many)
+model UserCompany {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  companyId Int
+  isDefault Boolean  @default(false) // Empresa padrão do usuário
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, companyId])
+  @@map("user_companies")
+}
+
+/// Configuração de E-mail SMTP
+model EmailConfig {
+  id          Int      @id @default(autoincrement())
+  companyId   Int?     // null = configuração global
+  name        String   // Nome da configuração
+  host        String   // Servidor SMTP
+  port        Int      // Porta SMTP
+  secure      Boolean  @default(true) // TLS/SSL
+  username    String   // Usuário SMTP
+  password    String   // Senha SMTP (criptografada)
+  fromEmail   String   // E-mail remetente
+  fromName    String   // Nome do remetente
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company          Company?           @relation(fields: [companyId], references: [id])
+  maintenanceAlerts MaintenanceAlert[]
+  emailLogs         EmailLog[]
+
+  @@map("email_configs")
+}
+
+/// Alertas de Manutenção Configurados
+model MaintenanceAlert {
+  id              Int      @id @default(autoincrement())
+  emailConfigId   Int
+  companyId       Int?     // Empresa (null = todas)
+  moldId          Int?     // Molde específico (null = todos)
+  daysBeforeAlert Int      @default(7) // Dias antes da manutenção para alertar
+  recipients      String   // E-mails separados por vírgula
+  active          Boolean  @default(true)
+  lastCheck       DateTime? // Última verificação
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  emailConfig EmailConfig @relation(fields: [emailConfigId], references: [id], onDelete: Cascade)
+  company     Company?    @relation(fields: [companyId], references: [id])
+  mold        Mold?       @relation(fields: [moldId], references: [id])
+
+  @@map("maintenance_alerts")
+}
+
+/// Log de E-mails Enviados
+model EmailLog {
+  id            Int      @id @default(autoincrement())
+  emailConfigId Int
+  recipients    String   // E-mails destinatários
+  subject       String   // Assunto
+  body          String   // Corpo do e-mail
+  moldId        Int?     // Molde relacionado (para alertas de manutenção)
+  downtimeId    Int?     // Parada relacionada (para notificações de parada)
+  emailType     String?  // Tipo de e-mail: 'maintenance_alert', 'downtime_notification', 'other'
+  success       Boolean  // Se foi enviado com sucesso
+  error         String?  // Mensagem de erro (se houver)
+  sentAt        DateTime @default(now())
+
+  emailConfig EmailConfig @relation(fields: [emailConfigId], references: [id], onDelete: Cascade)
+  mold        Mold?       @relation(fields: [moldId], references: [id])
+
+  @@index([moldId])
+  @@index([downtimeId])
+  @@index([emailType])
+  @@index([sentAt])
+  @@map("email_logs")
+}

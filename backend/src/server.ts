@@ -23,6 +23,8 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
 // Routes
 import authRoutes from './routes/authRoutes';
+import userRoutes from './routes/userRoutes';
+import rolePermissionRoutes from './routes/rolePermissionRoutes';
 import itemRoutes from './routes/itemRoutes';
 import moldRoutes from './routes/moldRoutes';
 import productionOrderRoutes from './routes/productionOrderRoutes';
@@ -34,12 +36,20 @@ import companyRoutes from './routes/companyRoutes';
 import sectorRoutes from './routes/sectorRoutes';
 import activityTypeRoutes from './routes/activityTypeRoutes';
 import defectRoutes from './routes/defectRoutes';
+import productionDefectRoutes from './routes/productionDefectRoutes';
 import referenceTypeRoutes from './routes/referenceTypeRoutes';
 import dataCollectorRoutes from './routes/dataCollectorRoutes';
+import cycleChangeRoutes from './routes/cycleChangeRoutes';
+import colorRoutes from './routes/colorRoutes';
+import emailConfigRoutes from './routes/emailConfigRoutes';
+import maintenanceAlertRoutes from './routes/maintenanceAlertRoutes';
 
 // Services
 import { modbusService } from './services/modbusService';
 import { productionService } from './services/productionService';
+
+// Schedulers
+import { startMaintenanceAlertScheduler, stopMaintenanceAlertScheduler } from './schedulers/maintenanceAlertScheduler';
 
 // Criar aplicação Express
 const app: Application = express();
@@ -48,21 +58,38 @@ const PORT = process.env.PORT || 3001;
 // Criar servidor HTTP
 const httpServer = createServer(app);
 
-// Configurar Socket.io
+// Configurar Socket.io com CORS permissivo para dispositivos móveis
+const socketCorsOptions = process.env.FRONTEND_URL === '*'
+  ? {
+      origin: true, // Permite qualquer origem
+      methods: ['GET', 'POST'],
+      credentials: true,
+    }
+  : {
+      origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+      methods: ['GET', 'POST'],
+      credentials: true,
+    };
+
 const io = new SocketServer(httpServer, {
-  cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-    methods: ['GET', 'POST'],
-    credentials: true,
-  },
+  cors: socketCorsOptions,
 });
 
 // Middlewares de segurança
 app.use(helmet());
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true,
-}));
+
+// Configuração de CORS para permitir acesso de dispositivos móveis
+const corsOptions = process.env.FRONTEND_URL === '*' 
+  ? { 
+      origin: true, // Permite qualquer origem
+      credentials: true,
+    }
+  : {
+      origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+      credentials: true,
+    };
+
+app.use(cors(corsOptions));
 
 // Rate limiting (configuração mais permissiva para desenvolvimento)
 const limiter = rateLimit({
@@ -101,6 +128,8 @@ app.get('/health', (_req, res) => {
 
 // Rotas da API
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/permissions', rolePermissionRoutes);
 app.use('/api/items', itemRoutes);
 app.use('/api/molds', moldRoutes);
 app.use('/api/production-orders', productionOrderRoutes);
@@ -112,8 +141,13 @@ app.use('/api/companies', companyRoutes);
 app.use('/api/sectors', sectorRoutes);
 app.use('/api/activity-types', activityTypeRoutes);
 app.use('/api/defects', defectRoutes);
+app.use('/api/production-defects', productionDefectRoutes);
 app.use('/api/reference-types', referenceTypeRoutes);
 app.use('/api/data-collector', dataCollectorRoutes);
+app.use('/api/cycle-changes', cycleChangeRoutes);
+app.use('/api/colors', colorRoutes);
+app.use('/api/email-configs', emailConfigRoutes);
+app.use('/api/maintenance-alerts', maintenanceAlertRoutes);
 
 // Handler de rotas não encontradas
 app.use(notFoundHandler);
@@ -167,6 +201,9 @@ async function startServer(): Promise<void> {
     // Inicializar serviço de produção com Socket.io
     productionService.initialize(io);
 
+    // Iniciar scheduler de alertas de manutenção
+    startMaintenanceAlertScheduler();
+
     // Inicializar e conectar ao CLP Modbus (não bloquear se falhar)
     // ATENÇÃO: Desabilitar quando usar Data Collector externo (Raspberry Pi)
     const useExternalDataCollector = process.env.USE_EXTERNAL_DATA_COLLECTOR === 'true';
@@ -203,6 +240,9 @@ async function startServer(): Promise<void> {
  */
 async function shutdown(): Promise<void> {
   console.log('\n⏳ Encerrando servidor...');
+  
+  // Parar scheduler de alertas
+  stopMaintenanceAlertScheduler();
   
   // Parar polling do Modbus
   modbusService.disconnect();

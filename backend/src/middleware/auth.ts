@@ -1,58 +1,68 @@
 /**
- * Middleware de autenticação JWT
+ * Middleware de autenticação
  */
 
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
+import { verifyToken } from '../utils/jwt';
 
 export interface AuthRequest extends Request {
-  userId?: number;
-  userRole?: string;
+  user?: {
+    userId: number;
+    role: string;
+    companyId?: number;
+  };
 }
 
 /**
- * Middleware para verificar token JWT
+ * Middleware para autenticar requisições via token JWT
  */
 export function authenticateToken(req: AuthRequest, res: Response, next: NextFunction): void {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
   if (!token) {
-    res.status(401).json({ error: 'Token de autenticação não fornecido' });
+    res.status(401).json({ error: 'Token não fornecido' });
     return;
   }
 
   try {
-    const secret = process.env.JWT_SECRET || 'default_secret_key';
-    const decoded = jwt.verify(token, secret) as { userId: number; role: string };
-    
-    req.userId = decoded.userId;
-    req.userRole = decoded.role;
-    
+    const decoded = verifyToken(token);
+    console.log('🔓 [AUTH MIDDLEWARE] Token decodificado:', JSON.stringify(decoded));
+    req.user = decoded;
+    console.log('🔓 [AUTH MIDDLEWARE] req.user após atribuição:', JSON.stringify(req.user));
     next();
   } catch (error) {
+    console.error('❌ Token inválido:', error);
     res.status(403).json({ error: 'Token inválido ou expirado' });
-    return;
   }
 }
 
 /**
- * Middleware para verificar role do usuário
+ * Middleware para verificar se o usuário tem uma empresa selecionada
  */
-export function authorizeRoles(...allowedRoles: string[]) {
+export function requireCompany(req: AuthRequest, res: Response, next: NextFunction): void {
+  if (!req.user?.companyId) {
+    res.status(403).json({ error: 'Empresa não selecionada. Selecione uma empresa primeiro.' });
+    return;
+  }
+  next();
+}
+
+/**
+ * Middleware para verificar role mínima
+ */
+export function requireRole(...roles: string[]) {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
-    if (!req.userRole) {
-      res.status(401).json({ error: 'Usuário não autenticado' });
+    if (!req.user) {
+      res.status(401).json({ error: 'Não autenticado' });
       return;
     }
 
-    if (!allowedRoles.includes(req.userRole)) {
-      res.status(403).json({ error: 'Acesso negado. Permissões insuficientes.' });
+    if (!roles.includes(req.user.role)) {
+      res.status(403).json({ error: 'Permissão negada' });
       return;
     }
 
     next();
   };
 }
-
-

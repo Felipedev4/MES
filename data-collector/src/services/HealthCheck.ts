@@ -37,6 +37,9 @@ export class HealthCheck {
    * Configurar rotas
    */
   private setupRoutes(): void {
+    // Middleware para parse de JSON
+    this.app.use(express.json());
+
     // Health check endpoint
     this.app.get('/health', async (req, res) => {
       try {
@@ -106,6 +109,40 @@ export class HealthCheck {
       }
     });
 
+    // Endpoint para testar conexão com PLC (via Data Collector)
+    this.app.post('/test-connection', async (req, res) => {
+      try {
+        const { host, port, unitId, timeout } = req.body;
+
+        // Validar campos obrigatórios
+        if (!host) {
+          res.status(400).json({ 
+            success: false, 
+            error: 'Host é obrigatório' 
+          });
+          return;
+        }
+
+        logger.info(`🔌 Testando conexão PLC: ${host}:${port || 502}`);
+
+        // Testar conexão usando PlcConnection temporária
+        const result = await this.plcPoolManager.testConnection({
+          host,
+          port: port || 502,
+          unitId: unitId || 1,
+          timeout: timeout || 5000,
+        });
+
+        res.json(result);
+      } catch (error: any) {
+        logger.error('❌ Erro ao testar conexão:', error);
+        res.status(500).json({ 
+          success: false, 
+          error: error.message || 'Erro ao testar conexão' 
+        });
+      }
+    });
+
     // Root endpoint
     this.app.get('/', (req, res) => {
       res.json({
@@ -115,6 +152,7 @@ export class HealthCheck {
           health: '/health',
           status: '/status',
           reload: 'POST /reload',
+          testConnection: 'POST /test-connection',
         },
       });
     });

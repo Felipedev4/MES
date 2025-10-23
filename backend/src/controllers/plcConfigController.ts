@@ -83,6 +83,7 @@ export async function createPlcConfig(req: AuthRequest, res: Response): Promise<
       timeout = 5000,
       pollingInterval = 1000,
       reconnectInterval = 10000,
+      timeDivisor = 10,
       sectorId,
       active = true,
     } = req.body;
@@ -96,6 +97,7 @@ export async function createPlcConfig(req: AuthRequest, res: Response): Promise<
         timeout,
         pollingInterval,
         reconnectInterval,
+        timeDivisor,
         sectorId: sectorId || null,
         active,
       },
@@ -358,14 +360,38 @@ export async function testPlcConnection(req: AuthRequest, res: Response): Promis
   try {
     const { host, port, unitId, timeout } = req.body;
 
-    const result = await modbusService.testConnection({
-      host,
-      port: port || 502,
-      unitId: unitId || 1,
-      timeout: timeout || 5000,
-    });
+    // IMPORTANTE: Chamar Data Collector para fazer o teste
+    // O frontend pode estar em uma rede diferente do PLC
+    // O Data Collector é quem deve estar na mesma rede do PLC
+    
+    const DATA_COLLECTOR_URL = process.env.DATA_COLLECTOR_URL || 'http://localhost:3002';
+    
+    try {
+      const response = await fetch(`${DATA_COLLECTOR_URL}/test-connection`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          host,
+          port: port || 502,
+          unitId: unitId || 1,
+          timeout: timeout || 5000,
+        }),
+      });
 
-    res.json(result);
+      const result = await response.json();
+      
+      res.json(result);
+    } catch (dataCollectorError: any) {
+      // Se Data Collector não estiver disponível, retornar erro específico
+      console.error('❌ Data Collector não disponível:', dataCollectorError.message);
+      res.status(503).json({ 
+        success: false, 
+        error: 'Data Collector não está disponível',
+        details: 'O serviço de coleta de dados não está respondendo. Verifique se está em execução.',
+      });
+    }
   } catch (error: any) {
     console.error('Erro ao testar conexão:', error);
     res.status(500).json({ 

@@ -2,7 +2,7 @@
  * Página de Configuração de CLP
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   Box,
   Button,
@@ -30,14 +30,22 @@ import {
   Switch,
   FormControlLabel,
   MenuItem,
-} from '@mui/material';
+  Stack,
+  InputAdornment,
+  useTheme} from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SettingsInputAntennaIcon from '@mui/icons-material/SettingsInputAntenna';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import SearchIcon from '@mui/icons-material/Search';
+import CancelIcon from '@mui/icons-material/Cancel';
+import StorageIcon from '@mui/icons-material/Storage';
+import RouterIcon from '@mui/icons-material/Router';
 import { useSnackbar } from 'notistack';
+import PageHeader from '../components/PageHeader';
+import StatsCard from '../components/StatsCard';
 import api from '../services/api';
 import { plcConfigService } from '../services/plcConfigService';
 import { PlcConfig } from '../types';
@@ -49,6 +57,7 @@ interface Sector {
 }
 
 const PlcConfigPage: React.FC = () => {
+  const theme = useTheme();
   const [configs, setConfigs] = useState<PlcConfig[]>([]);
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [loading, setLoading] = useState(false);
@@ -57,6 +66,7 @@ const PlcConfigPage: React.FC = () => {
   const [selectedConfig, setSelectedConfig] = useState<PlcConfig | null>(null);
   const [testLoading, setTestLoading] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
+  const [searchText, setSearchText] = useState('');
 
   const { enqueueSnackbar } = useSnackbar();
 
@@ -69,16 +79,15 @@ const PlcConfigPage: React.FC = () => {
     timeout: 5000,
     pollingInterval: 1000,
     reconnectInterval: 10000,
-    sectorId: '' as string | number,
-  });
+    timeDivisor: 10,
+    sectorId: '' as string | number});
 
   const [registerFormData, setRegisterFormData] = useState({
     registerName: '',
     registerAddress: 0,
     description: '',
     dataType: 'INT16',
-    enabled: true,
-  });
+    enabled: true});
 
   useEffect(() => {
     loadConfigs();
@@ -117,8 +126,8 @@ const PlcConfigPage: React.FC = () => {
         timeout: config.timeout,
         pollingInterval: config.pollingInterval,
         reconnectInterval: config.reconnectInterval,
-        sectorId: config.sectorId || '',
-      });
+        timeDivisor: config.timeDivisor || 10,
+        sectorId: config.sectorId || ''});
     } else {
       setSelectedConfig(null);
       setFormData({
@@ -129,8 +138,8 @@ const PlcConfigPage: React.FC = () => {
         timeout: 5000,
         pollingInterval: 1000,
         reconnectInterval: 10000,
-        sectorId: '',
-      });
+        timeDivisor: 10,
+        sectorId: ''});
     }
     setDialogOpen(true);
   };
@@ -144,8 +153,7 @@ const PlcConfigPage: React.FC = () => {
     try {
       const dataToSend = {
         ...formData,
-        sectorId: formData.sectorId ? Number(formData.sectorId) : null,
-      };
+        sectorId: formData.sectorId ? Number(formData.sectorId) : null};
 
       if (selectedConfig) {
         await plcConfigService.update(selectedConfig.id, dataToSend);
@@ -191,8 +199,7 @@ const PlcConfigPage: React.FC = () => {
         host: formData.host,
         port: formData.port,
         unitId: formData.unitId,
-        timeout: formData.timeout,
-      });
+        timeout: formData.timeout});
       setTestResult(result);
       if (result.success) {
         enqueueSnackbar('Conexão testada com sucesso!', { variant: 'success' });
@@ -215,8 +222,7 @@ const PlcConfigPage: React.FC = () => {
       registerAddress: 0,
       description: '',
       dataType: 'INT16',
-      enabled: true,
-    });
+      enabled: true});
     setRegisterDialogOpen(true);
   };
 
@@ -226,8 +232,7 @@ const PlcConfigPage: React.FC = () => {
     try {
       await plcConfigService.createRegister({
         ...registerFormData,
-        plcConfigId: selectedConfig.id,
-      });
+        plcConfigId: selectedConfig.id});
       enqueueSnackbar('Registro adicionado com sucesso!', { variant: 'success' });
       setRegisterDialogOpen(false);
       loadConfigs();
@@ -258,26 +263,111 @@ const PlcConfigPage: React.FC = () => {
     }
   };
 
+  // Filtros e estatísticas
+  const filteredConfigs = useMemo(() => {
+    return configs.filter((config) =>
+      !searchText ||
+      config.name.toLowerCase().includes(searchText.toLowerCase()) ||
+      config.host.toLowerCase().includes(searchText.toLowerCase()) ||
+      (config.sector?.name && config.sector.name.toLowerCase().includes(searchText.toLowerCase()))
+    );
+  }, [configs, searchText]);
+
+  const stats = useMemo(() => {
+    const totalRegisters = configs.reduce((sum, config) => sum + (config.registers?.length || 0), 0);
+    return {
+      total: configs.length,
+      active: configs.filter((c) => c.active).length,
+      inactive: configs.filter((c) => !c.active).length,
+      totalRegisters};
+  }, [configs]);
+
   return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Configuração de CLP</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpenDialog()}
-        >
-          Nova Configuração
-        </Button>
-      </Box>
+    <Box sx={{ maxWidth: '100%', overflow: 'hidden', p: { xs: 2, sm: 0 } }}>
+      {/* Header Profissional */}
+      <PageHeader
+        icon={<SettingsInputAntennaIcon />}
+        title="Configuração de CLP"
+        subtitle="Gerenciamento de CLPs, registros Modbus e comunicação"
+        iconGradient="linear-gradient(135deg, #00bcd4 0%, #0097a7 100%)"
+      />
+
+      {/*, s de Estatísticas */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatsCard title="Total de CLPs"
+            value={stats.total}
+            subtitle="Configurações cadastradas"
+            icon={<RouterIcon sx={{ fontSize: 32 }} />}
+            color={theme.palette.primary.main}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatsCard title="CLPs Ativos"
+            value={stats.active}
+            subtitle="Em operação"
+            icon={<CheckCircleIcon sx={{ fontSize: 32 }} />}
+            color={theme.palette.success.main}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatsCard title="CLPs Inativos"
+            value={stats.inactive}
+            subtitle="Desabilitados"
+            icon={<CancelIcon sx={{ fontSize: 32 }} />}
+            color={theme.palette.warning.main}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatsCard title="Total de Registros"
+            value={stats.totalRegisters}
+            subtitle="Modbus configurados"
+            icon={<StorageIcon sx={{ fontSize: 32 }} />}
+            color={theme.palette.info.main}
+          />
+        </Grid>
+      </Grid>
+
+      {/* Barra de Busca e Ações */}
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+          <TextField
+            placeholder="Buscar por nome, host ou setor..."
+            size="small"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            sx={{ flex: 1 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ color: 'text.secondary' }} />
+                </InputAdornment>
+              )}}
+          />
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenDialog()}
+            sx={{ minWidth: 200 }}
+          >
+            Nova Configuração
+          </Button>
+        </Stack>
+      </Paper>
 
       {loading ? (
         <Box display="flex" justifyContent="center" p={4}>
           <CircularProgress />
         </Box>
       ) : (
-        <TableContainer component={Paper}>
-          <Table>
+        <TableContainer 
+          component={Paper} 
+          sx={{ 
+            maxHeight: { xs: 'calc(100vh - 250px)', md: 'calc(100vh - 300px)' },
+            overflow: 'auto'
+          }}
+        >
+          <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
                 <TableCell>Nome</TableCell>
@@ -291,7 +381,34 @@ const PlcConfigPage: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {configs.map((config) => (
+              {filteredConfigs.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} align="center" sx={{ py: 8 }}>
+                    {searchText ? (
+                      <>
+                        <SearchIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
+                        <Typography variant="body1" color="text.secondary">
+                          Nenhuma configuração encontrada com "{searchText}"
+                        </Typography>
+                      </>
+                    ) : (
+                      <>
+                        <RouterIcon sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />
+                        <Typography variant="h6" gutterBottom>
+                          Nenhum CLP configurado
+                        </Typography>
+                        <Typography color="text.secondary" mb={3}>
+                          Adicione sua primeira configuração de CLP Modbus
+                        </Typography>
+                        <Button variant="outlined" startIcon={<AddIcon />} onClick={() => handleOpenDialog()}>
+                          Adicionar Configuração
+                        </Button>
+                      </>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredConfigs.map((config) => (
                 <React.Fragment key={config.id}>
                   <TableRow>
                     <TableCell>{config.name}</TableCell>
@@ -406,7 +523,8 @@ const PlcConfigPage: React.FC = () => {
                     </TableRow>
                   )}
                 </React.Fragment>
-              ))}
+              ))
+              )}
             </TableBody>
           </Table>
         </TableContainer>
@@ -511,6 +629,23 @@ const PlcConfigPage: React.FC = () => {
               />
             </Grid>
             <Grid item xs={12}>
+              <TextField
+                fullWidth
+                select
+                label="Divisor de Tempo (D33)"
+                value={formData.timeDivisor}
+                onChange={(e) =>
+                  setFormData({ ...formData, timeDivisor: parseInt(e.target.value) })
+                }
+                helperText="Unidade de tempo do registro D33: 1=segundos, 10=décimos, 100=centésimos, 1000=milissegundos"
+              >
+                <MenuItem value={1}>1 - Segundos (ex: 5 = 5s)</MenuItem>
+                <MenuItem value={10}>10 - Décimos de segundo (ex: 51 = 5,1s)</MenuItem>
+                <MenuItem value={100}>100 - Centésimos de segundo (ex: 510 = 5,1s)</MenuItem>
+                <MenuItem value={1000}>1000 - Milissegundos (ex: 5100 = 5,1s)</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid item xs={12}>
               <Button
                 variant="outlined"
                 startIcon={
@@ -573,8 +708,7 @@ const PlcConfigPage: React.FC = () => {
                 onChange={(e) =>
                   setRegisterFormData({
                     ...registerFormData,
-                    registerAddress: parseInt(e.target.value),
-                  })
+                    registerAddress: parseInt(e.target.value)})
                 }
                 required
               />

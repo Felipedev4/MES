@@ -2,6 +2,7 @@ import * as jsmodbus from 'jsmodbus';
 import * as net from 'net';
 import { logger } from '../utils/logger';
 import { ApiClient, PlcConfigResponse, PlcDataPayload } from './ApiClient';
+import { ProductionMonitor } from './ProductionMonitor';
 
 /**
  * Gerencia a conexão e leitura de um único CLP via Modbus TCP
@@ -15,10 +16,14 @@ export class PlcConnection {
   private isConnected: boolean = false;
   private lastValues: Map<number, number> = new Map();
   private apiClient: ApiClient;
+  private productionMonitor: ProductionMonitor | null = null;
+  private shouldReconnect: boolean = true; // ✅ Flag para controlar reconexão
 
-  constructor(config: PlcConfigResponse, apiClient: ApiClient) {
+  constructor(config: PlcConfigResponse, apiClient: ApiClient, productionMonitor?: ProductionMonitor, shouldReconnect: boolean = true) {
     this.config = config;
     this.apiClient = apiClient;
+    this.productionMonitor = productionMonitor || null;
+    this.shouldReconnect = shouldReconnect; // ✅ Controlar se deve reconectar automaticamente
   }
 
   /**
@@ -83,6 +88,7 @@ export class PlcConnection {
    * Desconectar do CLP
    */
   disconnect(): void {
+    this.shouldReconnect = false; // ✅ Desabilitar reconexão
     this.stopPolling();
     
     if (this.reconnectTimeout) {
@@ -91,6 +97,8 @@ export class PlcConnection {
     }
 
     if (this.socket) {
+      // ✅ Remover todos os event listeners antes de destruir
+      this.socket.removeAllListeners();
       this.socket.destroy();
       this.socket = null;
     }
@@ -165,6 +173,9 @@ export class PlcConnection {
             
             // Enviar para o backend via API
             await this.sendDataToBackend(register.id, register.registerAddress, register.registerName, value, true);
+            
+            // NOVO: Criar apontamento automático se for contador de produção
+            await this.handleProductionCounter(register, change, value, lastValue);
           }
         } else {
           // Erro na leitura
@@ -180,6 +191,73 @@ export class PlcConnection {
       } catch (error: any) {
         logger.error(`❌ Erro ao ler registro ${register.registerName}:`, error.message);
       }
+    }
+  }
+
+  /**
+   * Processar contador de produção e criar apontamento se necessário
+   * 
+   * LÓGICA CORRETA:
+   * - D33 = CYCLE_TIME (tempo entre fechamento e abertura do molde)
+   * - Cada mudança em D33 = 1 ciclo completo
+   * - 1 ciclo completo = N peças (N = cavidades do molde)
+   * - Produção = Número de ciclos × Cavidades do molde
+   */
+  private async handleProductionCounter(
+    register: any,
+    change: number,
+    currentValue: number,
+    previousValue: number | null
+  ): Promise<void> {
+    // Detectar CICLO COMPLETO através do CYCLE_TIME
+    const isCycleComplete = 
+      register.registerPurpose === 'CYCLE_TIME' &&
+      previousValue !== null && 
+      currentValue > 0 &&
+      currentValue !== previousValue; // Qualquer mudança indica ciclo completo
+    
+    if (!isCycleComplete || !this.productionMonitor) {
+      return;
+    }
+
+    try {
+      // Buscar ordem de produção ativa vinculada a este CLP
+      const activeOrders = this.productionMonitor.getActiveOrders();
+      const orderForThisPlc = activeOrders.find(o => {
+        // Buscar ordem vinculada a este CLP (ou primeira ordem ativa)
+        return o.plcConfigId === this.config.id || true;
+      });
+
+      if (!orderForThisPlc) {
+        logger.debug(`⚠️ Nenhuma ordem ativa encontrada para CLP ${this.config.name}`);
+        return;
+      }
+
+      // quantity = Valor D33 | clpCounterValue = Cavidades do molde
+      const moldCavities = orderForThisPlc.moldCavities || 1; // Default: 1 cavidade
+      const quantityFromD33 = currentValue; // Valor coletado do D33
+      
+      // Logar informações do ciclo
+      logger.info(`🔄 Ciclo completo detectado!`);
+      logger.info(`⏱️  ${register.registerName}: ${currentValue}ms (Δ ${Math.abs(change)}ms)`);
+      logger.info(`🎯 Criando apontamento: OP ${orderForThisPlc.orderNumber}`);
+      logger.info(`📦 quantity=${quantityFromD33} (D33) | clpCounterValue=${moldCavities} (cavidades)`);
+      
+      const success = await this.productionMonitor.recordProduction(
+        orderForThisPlc.id,
+        quantityFromD33, // quantity = valor do D33
+        undefined, // plcDataId
+        moldCavities // clpCounterValue = cavidades do molde
+      );
+
+      if (success) {
+        logger.info(`✅ Apontamento registrado com sucesso!`);
+      } else {
+        logger.warn(`⚠️ Falha ao registrar apontamento`);
+      }
+      
+    } catch (error: any) {
+      logger.error(`❌ Erro ao processar ciclo de produção:`, error.message);
     }
   }
 
@@ -242,8 +320,8 @@ export class PlcConnection {
 
     this.client = null;
 
-    // Tentar reconectar
-    if (!this.reconnectTimeout) {
+    // ✅ Só tentar reconectar se shouldReconnect for true
+    if (this.shouldReconnect && !this.reconnectTimeout) {
       logger.info(`⏳ Tentando reconectar PLC "${this.config.name}" em ${this.config.reconnectInterval}ms...`);
       
       this.reconnectTimeout = setTimeout(() => {
