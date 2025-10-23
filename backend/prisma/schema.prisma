@@ -319,18 +319,21 @@ model Sector {
 
 /// Modelo de Tipo de Atividade
 model ActivityType {
-  id          Int      @id @default(autoincrement())
-  code        String   @unique
-  name        String
-  description String?
-  type        String   @default("UNPRODUCTIVE") // PRODUCTIVE ou UNPRODUCTIVE
-  color       String? // Cor para visualização (hex)
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                        Int      @id @default(autoincrement())
+  code                      String   @unique
+  name                      String
+  description               String?
+  type                      String   @default("UNPRODUCTIVE") // PRODUCTIVE ou UNPRODUCTIVE
+  color                     String? // Cor para visualização (hex)
+  sectorEmail               String? // E-mail do setor para notificações
+  emailNotificationsEnabled Boolean  @default(false) // Se as notificações por e-mail estão ativas
+  active                    Boolean  @default(true)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
 
   downtimes Downtime[]
 
+  @@index([emailNotificationsEnabled])
   @@map("activity_types")
 }
 

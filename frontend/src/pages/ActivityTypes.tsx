@@ -39,6 +39,10 @@ import {
   CheckCircle as ProductiveIcon,
   Cancel as UnproductiveIcon,
   Palette as ColorIcon,
+  Email as EmailIcon,
+  Notifications as NotificationsIcon,
+  NotificationsOff as NotificationsOffIcon,
+  Warning as WarningIcon,
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
 import PageHeader from '../components/PageHeader';
@@ -52,6 +56,8 @@ interface ActivityType {
   description: string | null;
   type: 'PRODUCTIVE' | 'UNPRODUCTIVE';
   color: string | null;
+  sectorEmail: string | null;
+  emailNotificationsEnabled: boolean;
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -66,6 +72,8 @@ interface ActivityTypeFormData {
   description: string;
   type: 'PRODUCTIVE' | 'UNPRODUCTIVE';
   color: string;
+  sectorEmail: string;
+  emailNotificationsEnabled: boolean;
   active: boolean;
 }
 
@@ -75,6 +83,8 @@ const initialFormData: ActivityTypeFormData = {
   description: '',
   type: 'UNPRODUCTIVE',
   color: '#f44336',
+  sectorEmail: '',
+  emailNotificationsEnabled: false,
   active: true,
 };
 
@@ -111,6 +121,8 @@ export default function ActivityTypes() {
         description: activityType.description || '',
         type: activityType.type,
         color: activityType.color || '#f44336',
+        sectorEmail: activityType.sectorEmail || '',
+        emailNotificationsEnabled: activityType.emailNotificationsEnabled,
         active: activityType.active,
       });
     } else {
@@ -518,6 +530,103 @@ export default function ActivityTypes() {
                 }}
               />
             </Grid>
+
+            {/* Campos de E-mail e Notificações */}
+            <Grid item xs={12}>
+              <Box
+                sx={{
+                  p: 2,
+                  borderRadius: 1,
+                  backgroundColor: alpha(theme.palette.info.main, 0.05),
+                  border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
+                }}
+              >
+                <Stack spacing={2}>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <EmailIcon color="info" fontSize="small" />
+                    <Typography variant="body2" fontWeight={600}>
+                      E-mail do Setor
+                    </Typography>
+                  </Stack>
+                  <TextField
+                    fullWidth
+                    type="email"
+                    placeholder="Ex: manutencao@empresa.com"
+                    value={formData.sectorEmail}
+                    onChange={(e) => setFormData({ ...formData, sectorEmail: e.target.value })}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <EmailIcon fontSize="small" />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                  <Typography variant="caption" color="text.secondary">
+                    E-mail para receber notificações de paradas com defeitos vinculados
+                  </Typography>
+
+                  {/* Notificações por E-mail */}
+                  <Box
+                    sx={{
+                      mt: 2,
+                      p: 1.5,
+                      borderRadius: 1,
+                      backgroundColor: formData.emailNotificationsEnabled
+                        ? alpha(theme.palette.success.main, 0.1)
+                        : alpha(theme.palette.grey[500], 0.1),
+                      border: `1px solid ${
+                        formData.emailNotificationsEnabled
+                          ? alpha(theme.palette.success.main, 0.3)
+                          : alpha(theme.palette.grey[500], 0.3)
+                      }`,
+                    }}
+                  >
+                    <Stack spacing={1.5}>
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        {formData.emailNotificationsEnabled ? (
+                          <NotificationsIcon fontSize="small" />
+                        ) : (
+                          <NotificationsOffIcon fontSize="small" />
+                        )}
+                        <Typography variant="body2" fontWeight={600}>
+                          Notificações por E-mail
+                        </Typography>
+                      </Stack>
+
+                      {!formData.emailNotificationsEnabled && (
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <WarningIcon fontSize="small" color="warning" />
+                          <Typography variant="caption" color="warning.main">
+                            Este setor NÃO receberá notificações por e-mail de paradas
+                          </Typography>
+                        </Stack>
+                      )}
+
+                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Typography variant="body2">
+                          {formData.emailNotificationsEnabled ? 'Notificações Ativadas' : 'Notificações Desativadas'}
+                        </Typography>
+                        <Chip
+                          icon={formData.emailNotificationsEnabled ? <NotificationsIcon /> : <NotificationsOffIcon />}
+                          label={formData.emailNotificationsEnabled ? 'ON' : 'OFF'}
+                          color={formData.emailNotificationsEnabled ? 'success' : 'default'}
+                          onClick={() =>
+                            setFormData({
+                              ...formData,
+                              emailNotificationsEnabled: !formData.emailNotificationsEnabled,
+                            })
+                          }
+                          sx={{ fontWeight: 600, cursor: 'pointer' }}
+                        />
+                      </Stack>
+                    </Stack>
+                  </Box>
+                </Stack>
+              </Box>
+            </Grid>
+
+            {/* Status */}
             <Grid item xs={12}>
               <Box
                 sx={{

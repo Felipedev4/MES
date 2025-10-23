@@ -10,6 +10,8 @@ export const createActivityTypeSchema = yup.object().shape({
     description: yup.string().max(500).nullable(),
     type: yup.string().oneOf(['PRODUCTIVE', 'UNPRODUCTIVE'], 'Tipo deve ser PRODUCTIVE ou UNPRODUCTIVE').default('UNPRODUCTIVE'),
     color: yup.string().matches(/^#[0-9A-F]{6}$/i, 'Cor deve ser um código hexadecimal válido (ex: #FF5733)').nullable(),
+    sectorEmail: yup.string().email('E-mail inválido').max(255).nullable(),
+    emailNotificationsEnabled: yup.boolean().default(false),
     active: yup.boolean().default(true),
   }),
 });
@@ -24,6 +26,8 @@ export const updateActivityTypeSchema = yup.object().shape({
     description: yup.string().max(500).nullable(),
     type: yup.string().oneOf(['PRODUCTIVE', 'UNPRODUCTIVE'], 'Tipo deve ser PRODUCTIVE ou UNPRODUCTIVE'),
     color: yup.string().matches(/^#[0-9A-F]{6}$/i, 'Cor deve ser um código hexadecimal válido (ex: #FF5733)').nullable(),
+    sectorEmail: yup.string().email('E-mail inválido').max(255).nullable(),
+    emailNotificationsEnabled: yup.boolean(),
     active: yup.boolean(),
   }),
 });
