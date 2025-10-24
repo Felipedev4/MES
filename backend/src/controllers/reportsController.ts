@@ -16,20 +16,20 @@ export const getProductionReport = async (req: Request, res: Response) => {
     
     const whereClause: any = {};
     
-    // Filtro de data
+    // Filtro de data (considera timezone local -03:00)
     if (startDate || endDate) {
       whereClause.timestamp = {};
       if (startDate) {
-        // Início do dia (00:00:00)
-        const start = new Date(startDate as string);
-        start.setHours(0, 0, 0, 0);
+        // Início do dia no timezone local (00:00:00 -03:00)
+        const start = new Date(startDate as string + 'T00:00:00.000-03:00');
         whereClause.timestamp.gte = start;
+        console.log('📅 Data Início (Local):', startDate, '-> UTC:', start.toISOString());
       }
       if (endDate) {
-        // Fim do dia (23:59:59.999)
-        const end = new Date(endDate as string);
-        end.setHours(23, 59, 59, 999);
+        // Fim do dia no timezone local (23:59:59.999 -03:00)
+        const end = new Date(endDate as string + 'T23:59:59.999-03:00');
         whereClause.timestamp.lte = end;
+        console.log('📅 Data Fim (Local):', endDate, '-> UTC:', end.toISOString());
       }
     }
     
@@ -149,17 +149,15 @@ export const getDefectsReport = async (req: Request, res: Response) => {
     
     const whereClause: any = {};
     
-    // Filtro de data
+    // Filtro de data (considera timezone local -03:00)
     if (startDate || endDate) {
       whereClause.createdAt = {};
       if (startDate) {
-        const start = new Date(startDate as string);
-        start.setHours(0, 0, 0, 0);
+        const start = new Date(startDate as string + 'T00:00:00.000-03:00');
         whereClause.createdAt.gte = start;
       }
       if (endDate) {
-        const end = new Date(endDate as string);
-        end.setHours(23, 59, 59, 999);
+        const end = new Date(endDate as string + 'T23:59:59.999-03:00');
         whereClause.createdAt.lte = end;
       }
     }
@@ -250,17 +248,15 @@ export const getDowntimeReport = async (req: Request, res: Response) => {
     
     const whereClause: any = {};
     
-    // Filtro de data
+    // Filtro de data (considera timezone local -03:00)
     if (startDate || endDate) {
       whereClause.startTime = {};
       if (startDate) {
-        const start = new Date(startDate as string);
-        start.setHours(0, 0, 0, 0);
+        const start = new Date(startDate as string + 'T00:00:00.000-03:00');
         whereClause.startTime.gte = start;
       }
       if (endDate) {
-        const end = new Date(endDate as string);
-        end.setHours(23, 59, 59, 999);
+        const end = new Date(endDate as string + 'T23:59:59.999-03:00');
         whereClause.startTime.lte = end;
       }
     }
@@ -375,17 +371,15 @@ export const getEfficiencyReport = async (req: Request, res: Response) => {
     
     const whereClause: any = {};
     
-    // Filtro de data
+    // Filtro de data (considera timezone local -03:00)
     if (startDate || endDate) {
       whereClause.plannedStartDate = {};
       if (startDate) {
-        const start = new Date(startDate as string);
-        start.setHours(0, 0, 0, 0);
+        const start = new Date(startDate as string + 'T00:00:00.000-03:00');
         whereClause.plannedStartDate.gte = start;
       }
       if (endDate) {
-        const end = new Date(endDate as string);
-        end.setHours(23, 59, 59, 999);
+        const end = new Date(endDate as string + 'T23:59:59.999-03:00');
         whereClause.plannedStartDate.lte = end;
       }
     }
@@ -543,17 +537,15 @@ export const getOrdersReport = async (req: Request, res: Response) => {
     
     const whereClause: any = {};
     
-    // Filtro de data
+    // Filtro de data (considera timezone local -03:00)
     if (startDate || endDate) {
       whereClause.plannedStartDate = {};
       if (startDate) {
-        const start = new Date(startDate as string);
-        start.setHours(0, 0, 0, 0);
+        const start = new Date(startDate as string + 'T00:00:00.000-03:00');
         whereClause.plannedStartDate.gte = start;
       }
       if (endDate) {
-        const end = new Date(endDate as string);
-        end.setHours(23, 59, 59, 999);
+        const end = new Date(endDate as string + 'T23:59:59.999-03:00');
         whereClause.plannedStartDate.lte = end;
       }
     }
