@@ -15,7 +15,7 @@ export const getProductionReport = async (req: Request, res: Response) => {
     const { startDate, endDate, companyId } = req.query;
     
     const whereClause: any = {
-      startDate: {
+      timestamp: {
         gte: startDate ? new Date(startDate as string) : undefined,
         lte: endDate ? new Date(endDate as string) : undefined,
       },
@@ -29,36 +29,35 @@ export const getProductionReport = async (req: Request, res: Response) => {
       };
     }
     
-    const productions = await prisma.production.findMany({
+    const appointments = await prisma.productionAppointment.findMany({
       where: whereClause,
       include: {
         productionOrder: {
           include: {
             item: true,
             color: true,
+            plcConfig: true,
           },
         },
-        plcConfig: true,
       },
       orderBy: {
-        startDate: 'desc',
+        timestamp: 'desc',
       },
     });
     
-    const reportData = productions.map((prod: any) => ({
-      'Data Início': prod.startDate ? new Date(prod.startDate).toLocaleDateString('pt-BR') : '-',
-      'Data Fim': prod.endDate ? new Date(prod.endDate).toLocaleDateString('pt-BR') : '-',
-      'Ordem': prod.productionOrder?.orderNumber || '-',
-      'Item': prod.productionOrder?.item?.name || '-',
-      'Cor': prod.productionOrder?.color?.name || '-',
-      'Máquina': prod.plcConfig?.name || '-',
-      'Qtd Planejada': prod.productionOrder?.plannedQuantity || 0,
-      'Qtd Produzida': prod.quantityProduced || 0,
-      'Qtd Rejeitada': prod.quantityRejected || 0,
-      'Qtd Boa': (prod.quantityProduced || 0) - (prod.quantityRejected || 0),
-      'Eficiência (%)': prod.productionOrder?.plannedQuantity 
-        ? (((prod.quantityProduced || 0) / prod.productionOrder.plannedQuantity) * 100).toFixed(2)
-        : '0.00',
+    const reportData = appointments.map((appt: any) => ({
+      'Data': new Date(appt.timestamp).toLocaleDateString('pt-BR'),
+      'Hora': new Date(appt.timestamp).toLocaleTimeString('pt-BR'),
+      'Ordem': appt.productionOrder?.orderNumber || '-',
+      'Item': appt.productionOrder?.item?.name || '-',
+      'Cor': appt.productionOrder?.color?.name || '-',
+      'Máquina': appt.productionOrder?.plcConfig?.name || '-',
+      'Qtd Apontada': appt.quantity || 0,
+      'Qtd Rejeitada': appt.rejectedQuantity || 0,
+      'Qtd Boa': (appt.quantity || 0) - (appt.rejectedQuantity || 0),
+      'Tipo': appt.automatic ? 'Automático' : 'Manual',
+      'Duração (min)': appt.durationSeconds ? Math.round(appt.durationSeconds / 60) : '-',
+      'Observações': appt.notes || '-',
     }));
     
     res.json(reportData);
@@ -83,11 +82,9 @@ export const getDefectsReport = async (req: Request, res: Response) => {
     };
     
     if (companyId) {
-      whereClause.production = {
-        productionOrder: {
-          item: {
-            companyId: parseInt(companyId as string),
-          },
+      whereClause.productionOrder = {
+        item: {
+          companyId: parseInt(companyId as string),
         },
       };
     }
@@ -100,13 +97,9 @@ export const getDefectsReport = async (req: Request, res: Response) => {
             responsibleSectors: true,
           },
         },
-        production: {
+        productionOrder: {
           include: {
-            productionOrder: {
-              include: {
-                item: true,
-              },
-            },
+            item: true,
           },
         },
       },
@@ -120,9 +113,9 @@ export const getDefectsReport = async (req: Request, res: Response) => {
       'Hora': new Date(defect.createdAt).toLocaleTimeString('pt-BR'),
       'Defeito': defect.defect?.name || '-',
       'Severidade': defect.defect?.severity || '-',
-      'Item': defect.production?.productionOrder?.item?.name || '-',
+      'Item': defect.productionOrder?.item?.name || '-',
       'Quantidade': defect.quantity,
-      'Setores Responsáveis': defect.defect?.responsibleSectors?.map(s => s.name).join(', ') || '-',
+      'Setores Responsáveis': defect.defect?.responsibleSectors?.map((s: any) => s.name).join(', ') || '-',
       'Observações': defect.notes || '-',
     }));
     
@@ -160,7 +153,7 @@ export const getDowntimeReport = async (req: Request, res: Response) => {
       include: {
         activityType: {
           include: {
-            sectors: {
+            activityTypeSectors: {
               include: {
                 sector: true,
               },
@@ -193,7 +186,7 @@ export const getDowntimeReport = async (req: Request, res: Response) => {
         'Tipo': downtime.type === 'PRODUCTIVE' ? 'Produtiva' : 'Improdutiva',
         'Item': downtime.productionOrder?.item?.name || '-',
         'Ordem': downtime.productionOrder?.orderNumber || '-',
-        'Setores Vinculados': downtime.activityType?.sectors?.map(s => s.sector.name).join(', ') || '-',
+        'Setores Vinculados': downtime.activityType?.activityTypeSectors?.map((ats: any) => ats.sector.name).join(', ') || '-',
         'Observações': downtime.notes || '-',
       };
     });
@@ -213,44 +206,38 @@ export const getEfficiencyReport = async (req: Request, res: Response) => {
     const { startDate, endDate, companyId } = req.query;
     
     const whereClause: any = {
-      startDate: {
+      plannedStartDate: {
         gte: startDate ? new Date(startDate as string) : undefined,
         lte: endDate ? new Date(endDate as string) : undefined,
       },
     };
     
     if (companyId) {
-      whereClause.productionOrder = {
-        item: {
-          companyId: parseInt(companyId as string),
-        },
+      whereClause.item = {
+        companyId: parseInt(companyId as string),
       };
     }
     
-    const productions = await prisma.production.findMany({
+    const orders = await prisma.productionOrder.findMany({
       where: whereClause,
       include: {
-        productionOrder: {
-          include: {
-            item: true,
-          },
-        },
+        item: true,
         plcConfig: true,
       },
       orderBy: {
-        startDate: 'desc',
+        plannedStartDate: 'desc',
       },
     });
     
-    const reportData = productions.map((prod: any) => {
-      const plannedTime = prod.startDate && prod.endDate
-        ? Math.round((new Date(prod.endDate).getTime() - new Date(prod.startDate).getTime()) / 60000)
+    const reportData = orders.map((order: any) => {
+      const plannedTime = order.startDate && order.endDate
+        ? Math.round((new Date(order.endDate).getTime() - new Date(order.startDate).getTime()) / 60000)
         : 0;
       
-      const produced = prod.quantityProduced || 0;
-      const rejected = prod.quantityRejected || 0;
+      const produced = order.producedQuantity || 0;
+      const rejected = order.rejectedQuantity || 0;
       const good = produced - rejected;
-      const planned = prod.productionOrder?.plannedQuantity || 0;
+      const planned = order.plannedQuantity || 0;
       
       const availability = plannedTime > 0 ? 100 : 0; // Simplificado
       const performance = planned > 0 ? Math.min((produced / planned) * 100, 100) : 0;
@@ -258,10 +245,10 @@ export const getEfficiencyReport = async (req: Request, res: Response) => {
       const oee = (availability * performance * quality) / 10000;
       
       return {
-        'Data': prod.startDate ? new Date(prod.startDate).toLocaleDateString('pt-BR') : '-',
-        'Ordem': prod.productionOrder?.orderNumber || '-',
-        'Item': prod.productionOrder?.item?.name || '-',
-        'Máquina': prod.plcConfig?.name || '-',
+        'Data': order.startDate ? new Date(order.startDate).toLocaleDateString('pt-BR') : '-',
+        'Ordem': order.orderNumber || '-',
+        'Item': order.item?.name || '-',
+        'Máquina': order.plcConfig?.name || '-',
         'Tempo Planejado (min)': plannedTime,
         'Qtd Planejada': planned,
         'Qtd Produzida': produced,
