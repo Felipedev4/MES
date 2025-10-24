@@ -15,6 +15,7 @@ export class PlcConnection {
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private isConnected: boolean = false;
   private lastValues: Map<number, number> = new Map();
+  private readCounts: Map<number, number> = new Map(); // Contador de leituras sem mudança
   private apiClient: ApiClient;
   private productionMonitor: ProductionMonitor | null = null;
   private shouldReconnect: boolean = true; // ✅ Flag para controlar reconexão
@@ -180,12 +181,12 @@ export class PlcConnection {
             await this.handleProductionCounter(register, change, value, lastValue);
           } else {
             // Valor não mudou, mas enviar periodicamente (a cada 10 leituras)
-            const readCount = (this.lastValues.get(`count_${register.id}` as any) as number) || 0;
+            const readCount = this.readCounts.get(register.id) || 0;
             if (readCount % 10 === 0) {
               logger.debug(`📊 ${register.registerName}: ${value} (sem mudança)`);
               await this.sendDataToBackend(register.id, register.registerAddress, register.registerName, value, true);
             }
-            this.lastValues.set(`count_${register.id}` as any, readCount + 1);
+            this.readCounts.set(register.id, readCount + 1);
           }
         } else {
           // Erro na leitura
