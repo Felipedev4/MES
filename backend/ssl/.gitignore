@@ -1,0 +1,10 @@
+# Ignorar todos os certificados SSL
+*.pem
+*.crt
+*.key
+*.p12
+*.pfx
+
+# Manter este arquivo
+!.gitignore
+

@@ -7,6 +7,9 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { createServer } from 'http';
+import { createServer as createHttpsServer } from 'https';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { Server as SocketServer } from 'socket.io';
 import swaggerUi from 'swagger-ui-express';
 import rateLimit from 'express-rate-limit';
@@ -56,9 +59,31 @@ import { startMaintenanceAlertScheduler, stopMaintenanceAlertScheduler } from '.
 // Criar aplicação Express
 const app: Application = express();
 const PORT = process.env.PORT || 3001;
+const HTTPS_PORT = process.env.HTTPS_PORT || 3443;
+const ENABLE_HTTPS = process.env.ENABLE_HTTPS === 'true';
 
 // Criar servidor HTTP
 const httpServer = createServer(app);
+
+// Criar servidor HTTPS (se habilitado)
+let httpsServer: any = null;
+if (ENABLE_HTTPS) {
+  try {
+    const certPath = join(__dirname, '..', 'ssl', 'cert.pem');
+    const keyPath = join(__dirname, '..', 'ssl', 'key.pem');
+    
+    const httpsOptions = {
+      key: readFileSync(keyPath),
+      cert: readFileSync(certPath)
+    };
+    
+    httpsServer = createHttpsServer(httpsOptions, app);
+    console.log('🔐 HTTPS habilitado');
+  } catch (error) {
+    console.warn('⚠️  Certificados SSL não encontrados. HTTPS desabilitado.');
+    console.warn('   Execute: npm run generate-ssl');
+  }
+}
 
 // Configurar Socket.io com CORS permissivo para dispositivos móveis
 const socketCorsOptions = process.env.FRONTEND_URL === '*'
@@ -73,7 +98,8 @@ const socketCorsOptions = process.env.FRONTEND_URL === '*'
       credentials: true,
     };
 
-const io = new SocketServer(httpServer, {
+// Usar servidor HTTPS para Socket.IO se disponível, senão HTTP
+const io = new SocketServer(httpsServer || httpServer, {
   cors: socketCorsOptions,
 });
 
@@ -227,11 +253,22 @@ async function startServer(): Promise<void> {
       console.log('\n🚀 ========================================');
       console.log(`   Servidor MES iniciado com sucesso!`);
       console.log(`   Ambiente: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`   API: http://localhost:${PORT}`);
+      console.log(`   HTTP: http://localhost:${PORT}`);
       console.log(`   Documentação: http://localhost:${PORT}/api-docs`);
       console.log(`   WebSocket: http://localhost:${PORT}`);
+      if (ENABLE_HTTPS && httpsServer) {
+        console.log(`   HTTPS: https://localhost:${HTTPS_PORT} 🔐`);
+        console.log(`   WebSocket (Secure): wss://localhost:${HTTPS_PORT}`);
+      }
       console.log('========================================\n');
     });
+
+    // Iniciar servidor HTTPS (se habilitado)
+    if (ENABLE_HTTPS && httpsServer) {
+      httpsServer.listen(HTTPS_PORT, () => {
+        console.log(`🔐 Servidor HTTPS ativo na porta ${HTTPS_PORT}`);
+      });
+    }
 
   } catch (error) {
     console.error('❌ Erro ao iniciar servidor:', error);
@@ -253,6 +290,13 @@ async function shutdown(): Promise<void> {
   
   // Desconectar do banco de dados
   await disconnectDatabase();
+  
+  // Fechar servidor HTTPS (se ativo)
+  if (httpsServer) {
+    httpsServer.close(() => {
+      console.log('🔐 Servidor HTTPS encerrado');
+    });
+  }
   
   // Fechar servidor HTTP
   httpServer.close(() => {

@@ -7,6 +7,7 @@
     "dev": "nodemon src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "generate-ssl": "node generate-ssl.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
@@ -56,6 +57,7 @@
     "@types/swagger-ui-express": "^4.1.6",
     "nodemon": "^3.0.2",
     "prisma": "^5.7.0",
+    "selfsigned": "^3.0.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   }
