@@ -12,6 +12,7 @@ export const createActivityTypeSchema = yup.object().shape({
     color: yup.string().matches(/^#[0-9A-F]{6}$/i, 'Cor deve ser um código hexadecimal válido (ex: #FF5733)').nullable(),
     sectorEmail: yup.string().email('E-mail inválido').max(255).nullable(),
     emailNotificationsEnabled: yup.boolean().default(false),
+    sectorIds: yup.array().of(yup.number().integer().positive()).default([]),
     active: yup.boolean().default(true),
   }),
 });
@@ -28,6 +29,7 @@ export const updateActivityTypeSchema = yup.object().shape({
     color: yup.string().matches(/^#[0-9A-F]{6}$/i, 'Cor deve ser um código hexadecimal válido (ex: #FF5733)').nullable(),
     sectorEmail: yup.string().email('E-mail inválido').max(255).nullable(),
     emailNotificationsEnabled: yup.boolean(),
+    sectorIds: yup.array().of(yup.number().integer().positive()),
     active: yup.boolean(),
   }),
 });

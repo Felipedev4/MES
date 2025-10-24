@@ -28,6 +28,7 @@ import {
   Tooltip,
   IconButton,
   MenuItem,
+  Autocomplete,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -43,11 +44,19 @@ import {
   Notifications as NotificationsIcon,
   NotificationsOff as NotificationsOffIcon,
   Warning as WarningIcon,
+  Business as SectorIcon,
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
 import PageHeader from '../components/PageHeader';
 import StatsCard from '../components/StatsCard';
 import api from '../services/api';
+
+interface Sector {
+  id: number;
+  code: string;
+  name: string;
+  email: string | null;
+}
 
 interface ActivityType {
   id: number;
@@ -64,6 +73,10 @@ interface ActivityType {
   _count?: {
     downtimes: number;
   };
+  activityTypeSectors?: Array<{
+    id: number;
+    sector: Sector;
+  }>;
 }
 
 interface ActivityTypeFormData {
@@ -74,6 +87,7 @@ interface ActivityTypeFormData {
   color: string;
   sectorEmail: string;
   emailNotificationsEnabled: boolean;
+  sectorIds: number[];
   active: boolean;
 }
 
@@ -85,6 +99,7 @@ const initialFormData: ActivityTypeFormData = {
   color: '#f44336',
   sectorEmail: '',
   emailNotificationsEnabled: false,
+  sectorIds: [],
   active: true,
 };
 
@@ -92,6 +107,7 @@ export default function ActivityTypes() {
   const theme = useTheme();
   const { enqueueSnackbar } = useSnackbar();
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([]);
+  const [sectors, setSectors] = useState<Sector[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState<ActivityTypeFormData>(initialFormData);
@@ -101,7 +117,17 @@ export default function ActivityTypes() {
 
   useEffect(() => {
     loadActivityTypes();
+    loadSectors();
   }, []);
+
+  const loadSectors = async () => {
+    try {
+      const response = await api.get('/sectors');
+      setSectors(response.data);
+    } catch (error: any) {
+      console.error('Erro ao carregar setores:', error);
+    }
+  };
 
   const loadActivityTypes = async () => {
     try {
@@ -123,6 +149,7 @@ export default function ActivityTypes() {
         color: activityType.color || '#f44336',
         sectorEmail: activityType.sectorEmail || '',
         emailNotificationsEnabled: activityType.emailNotificationsEnabled,
+        sectorIds: activityType.activityTypeSectors?.map(ats => ats.sector.id) || [],
         active: activityType.active,
       });
     } else {
@@ -531,7 +558,7 @@ export default function ActivityTypes() {
               />
             </Grid>
 
-            {/* Campos de E-mail e Notificações */}
+            {/* Setores Responsáveis pela Resolução */}
             <Grid item xs={12}>
               <Box
                 sx={{
@@ -543,85 +570,74 @@ export default function ActivityTypes() {
               >
                 <Stack spacing={2}>
                   <Stack direction="row" alignItems="center" spacing={1}>
-                    <EmailIcon color="info" fontSize="small" />
+                    <SectorIcon color="info" fontSize="small" />
                     <Typography variant="body2" fontWeight={600}>
-                      E-mail do Setor
+                      Setores Responsáveis pela Resolução
                     </Typography>
                   </Stack>
-                  <TextField
-                    fullWidth
-                    type="email"
-                    placeholder="Ex: manutencao@empresa.com"
-                    value={formData.sectorEmail}
-                    onChange={(e) => setFormData({ ...formData, sectorEmail: e.target.value })}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <EmailIcon fontSize="small" />
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                  <Typography variant="caption" color="text.secondary">
-                    E-mail para receber notificações de paradas com defeitos vinculados
+                  
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <WarningIcon fontSize="small" color="warning" />
+                    Selecione os setores que podem identificar e resolver este tipo de defeito. 
+                    Isso permite notificações automáticas e rastreabilidade de responsabilidades.
                   </Typography>
 
-                  {/* Notificações por E-mail */}
-                  <Box
-                    sx={{
-                      mt: 2,
-                      p: 1.5,
-                      borderRadius: 1,
-                      backgroundColor: formData.emailNotificationsEnabled
-                        ? alpha(theme.palette.success.main, 0.1)
-                        : alpha(theme.palette.grey[500], 0.1),
-                      border: `1px solid ${
-                        formData.emailNotificationsEnabled
-                          ? alpha(theme.palette.success.main, 0.3)
-                          : alpha(theme.palette.grey[500], 0.3)
-                      }`,
+                  <Autocomplete
+                    multiple
+                    options={sectors}
+                    getOptionLabel={(option) => `${option.code} - ${option.name}`}
+                    value={sectors.filter(s => formData.sectorIds.includes(s.id))}
+                    onChange={(_, newValue) => {
+                      setFormData({
+                        ...formData,
+                        sectorIds: newValue.map(s => s.id),
+                      });
                     }}
-                  >
-                    <Stack spacing={1.5}>
-                      <Stack direction="row" alignItems="center" spacing={1}>
-                        {formData.emailNotificationsEnabled ? (
-                          <NotificationsIcon fontSize="small" />
-                        ) : (
-                          <NotificationsOffIcon fontSize="small" />
-                        )}
-                        <Typography variant="body2" fontWeight={600}>
-                          Notificações por E-mail
-                        </Typography>
-                      </Stack>
-
-                      {!formData.emailNotificationsEnabled && (
-                        <Stack direction="row" alignItems="center" spacing={1}>
-                          <WarningIcon fontSize="small" color="warning" />
-                          <Typography variant="caption" color="warning.main">
-                            Este setor NÃO receberá notificações por e-mail de paradas
-                          </Typography>
-                        </Stack>
-                      )}
-
-                      <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Typography variant="body2">
-                          {formData.emailNotificationsEnabled ? 'Notificações Ativadas' : 'Notificações Desativadas'}
-                        </Typography>
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        placeholder="Adicionar mais setores..."
+                        InputProps={{
+                          ...params.InputProps,
+                          startAdornment: (
+                            <>
+                              <InputAdornment position="start">
+                                <SectorIcon fontSize="small" />
+                              </InputAdornment>
+                              {params.InputProps.startAdornment}
+                            </>
+                          ),
+                        }}
+                      />
+                    )}
+                    renderTags={(value, getTagProps) =>
+                      value.map((option, index) => (
                         <Chip
-                          icon={formData.emailNotificationsEnabled ? <NotificationsIcon /> : <NotificationsOffIcon />}
-                          label={formData.emailNotificationsEnabled ? 'ON' : 'OFF'}
-                          color={formData.emailNotificationsEnabled ? 'success' : 'default'}
-                          onClick={() =>
-                            setFormData({
-                              ...formData,
-                              emailNotificationsEnabled: !formData.emailNotificationsEnabled,
-                            })
-                          }
-                          sx={{ fontWeight: 600, cursor: 'pointer' }}
+                          {...getTagProps({ index })}
+                          key={option.id}
+                          icon={<SectorIcon fontSize="small" />}
+                          label={`${option.code} - ${option.name}`}
+                          color="primary"
+                          variant="outlined"
                         />
-                      </Stack>
-                    </Stack>
-                  </Box>
+                      ))
+                    }
+                  />
+
+                  {formData.sectorIds.length > 0 && (
+                    <Box
+                      sx={{
+                        p: 1.5,
+                        borderRadius: 1,
+                        backgroundColor: alpha(theme.palette.success.main, 0.1),
+                        border: `1px solid ${alpha(theme.palette.success.main, 0.3)}`,
+                      }}
+                    >
+                      <Typography variant="caption" color="success.main" fontWeight={600}>
+                        ✓ {formData.sectorIds.length} setor(es) selecionado(s) - Responsabilidade definida!
+                      </Typography>
+                    </Box>
+                  )}
                 </Stack>
               </Box>
             </Grid>

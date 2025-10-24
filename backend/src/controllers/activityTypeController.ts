@@ -22,6 +22,11 @@ export async function listActivityTypes(req: Request, res: Response): Promise<vo
             downtimes: true,
           },
         },
+        activityTypeSectors: {
+          include: {
+            sector: true,
+          },
+        },
       },
       orderBy: { name: 'asc' },
     });
@@ -68,7 +73,7 @@ export async function getActivityType(req: Request, res: Response): Promise<void
  */
 export async function createActivityType(req: Request, res: Response): Promise<void> {
   try {
-    const data = req.body;
+    const { sectorIds, ...data } = req.body;
 
     // Verificar se código já existe
     const existing = await prisma.activityType.findUnique({
@@ -81,7 +86,21 @@ export async function createActivityType(req: Request, res: Response): Promise<v
     }
 
     const activityType = await prisma.activityType.create({
-      data,
+      data: {
+        ...data,
+        activityTypeSectors: sectorIds && sectorIds.length > 0 ? {
+          create: sectorIds.map((sectorId: number) => ({
+            sectorId,
+          })),
+        } : undefined,
+      },
+      include: {
+        activityTypeSectors: {
+          include: {
+            sector: true,
+          },
+        },
+      },
     });
 
     res.status(201).json(activityType);
@@ -97,7 +116,7 @@ export async function createActivityType(req: Request, res: Response): Promise<v
 export async function updateActivityType(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const data = req.body;
+    const { sectorIds, ...data } = req.body;
 
     // Verificar se tipo de atividade existe
     const existing = await prisma.activityType.findUnique({
@@ -121,9 +140,27 @@ export async function updateActivityType(req: Request, res: Response): Promise<v
       }
     }
 
+    // Atualizar tipo de atividade e seus setores
     const activityType = await prisma.activityType.update({
       where: { id: parseInt(id) },
-      data,
+      data: {
+        ...data,
+        activityTypeSectors: sectorIds !== undefined ? {
+          // Deletar todos os setores existentes
+          deleteMany: {},
+          // Criar os novos setores
+          create: sectorIds.length > 0 ? sectorIds.map((sectorId: number) => ({
+            sectorId,
+          })) : [],
+        } : undefined,
+      },
+      include: {
+        activityTypeSectors: {
+          include: {
+            sector: true,
+          },
+        },
+      },
     });
 
     res.json(activityType);
