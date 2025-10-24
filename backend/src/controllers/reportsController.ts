@@ -42,6 +42,7 @@ export const getProductionReport = async (req: Request, res: Response) => {
           },
         },
         user: true,
+        shift: true,
       },
       orderBy: {
         timestamp: 'desc',
@@ -56,16 +57,31 @@ export const getProductionReport = async (req: Request, res: Response) => {
       const cavities = appt.productionOrder?.mold?.activeCavities || appt.productionOrder?.mold?.cavities || 1;
       const cycleTime = appt.productionOrder?.mold?.cycleTime || 0;
       
-      // Determinar turno baseado na hora
-      const hour = new Date(appt.timestamp).getHours();
+      // Usar turno cadastrado ou calcular dinamicamente
       let shift = '';
-      if (hour >= 6 && hour < 14) shift = '1º Turno (06:00-14:00)';
-      else if (hour >= 14 && hour < 22) shift = '2º Turno (14:00-22:00)';
-      else shift = '3º Turno (22:00-06:00)';
+      if (appt.shift) {
+        shift = `${appt.shift.name} (${appt.shift.startTime}-${appt.shift.endTime})`;
+      } else {
+        // Fallback: determinar turno baseado na hora (se não tiver turno cadastrado)
+        const hour = new Date(appt.timestamp).getHours();
+        if (hour >= 6 && hour < 14) shift = '1º Turno (06:00-14:00)';
+        else if (hour >= 14 && hour < 22) shift = '2º Turno (14:00-22:00)';
+        else shift = '3º Turno (22:00-06:00)';
+      }
+      
+      // Formatar datas de início e fim se existirem
+      const dataInicio = appt.startTime 
+        ? new Date(appt.startTime).toLocaleDateString('pt-BR') + ' ' + new Date(appt.startTime).toLocaleTimeString('pt-BR')
+        : '-';
+      const dataFim = appt.endTime 
+        ? new Date(appt.endTime).toLocaleDateString('pt-BR') + ' ' + new Date(appt.endTime).toLocaleTimeString('pt-BR')
+        : '-';
       
       return {
-        'Data': new Date(appt.timestamp).toLocaleDateString('pt-BR'),
-        'Hora': new Date(appt.timestamp).toLocaleTimeString('pt-BR'),
+        'Data Apontamento': new Date(appt.timestamp).toLocaleDateString('pt-BR'),
+        'Hora Apontamento': new Date(appt.timestamp).toLocaleTimeString('pt-BR'),
+        'Data/Hora Início': dataInicio,
+        'Data/Hora Fim': dataFim,
         'Turno': shift,
         'Ordem': appt.productionOrder?.orderNumber || '-',
         'Item': appt.productionOrder?.item?.name || '-',
@@ -76,7 +92,8 @@ export const getProductionReport = async (req: Request, res: Response) => {
         'Tempo Ciclo (s)': cycleTime,
         'Máquina/CLP': appt.productionOrder?.plcConfig?.name || '-',
         'Setor': appt.productionOrder?.sector?.name || '-',
-        'Operador': appt.user?.name || '-',
+        'Operador/Colaborador': appt.user?.name || '-',
+        'Matrícula': appt.user?.employeeCode || '-',
         'Tipo Apontamento': appt.automatic ? 'Automático (CLP)' : 'Manual',
         'Qtd Produzida': appt.quantity || 0,
         'Qtd Rejeitada': appt.rejectedQuantity || 0,

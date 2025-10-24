@@ -188,6 +188,7 @@ model ProductionAppointment {
   id                Int       @id @default(autoincrement())
   productionOrderId Int
   userId            Int
+  shiftId           Int? // Turno do apontamento (calculado automaticamente ou informado)
   quantity          Int
   rejectedQuantity  Int       @default(0)
   timestamp         DateTime  @default(now())
@@ -201,11 +202,13 @@ model ProductionAppointment {
 
   productionOrder ProductionOrder @relation(fields: [productionOrderId], references: [id])
   user            User            @relation(fields: [userId], references: [id])
+  shift           Shift?          @relation(fields: [shiftId], references: [id])
 
   @@index([productionOrderId, timestamp])
   @@index([timestamp])
   @@index([startTime])
   @@index([endTime])
+  @@index([shiftId])
   @@map("production_appointments")
 }
 
@@ -287,6 +290,7 @@ model Company {
   items             Item[]
   molds             Mold[]
   sectors           Sector[]
+  shifts            Shift[]
   productionOrders  ProductionOrder[]
   userCompanies     UserCompany[]
   selectedByUsers   User[]             @relation("UserSelectedCompany")
@@ -294,6 +298,26 @@ model Company {
   maintenanceAlerts MaintenanceAlert[]
 
   @@map("companies")
+}
+
+/// Modelo de Turno
+model Shift {
+  id          Int      @id @default(autoincrement())
+  companyId   Int
+  name        String // Ex: "1º Turno", "Turno Matutino", "Turno A"
+  code        String // Ex: "T1", "MAT", "A"
+  startTime   String // Formato HH:mm (ex: "06:00")
+  endTime     String // Formato HH:mm (ex: "14:00")
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company                Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  productionAppointments ProductionAppointment[]
+
+  @@unique([companyId, code])
+  @@map("shifts")
 }
 
 /// Modelo de Setor
