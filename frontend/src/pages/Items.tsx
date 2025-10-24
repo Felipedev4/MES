@@ -48,6 +48,9 @@ interface ItemFormData {
   name: string;
   description: string;
   unit: string;
+  materialCost: string;
+  laborCost: string;
+  scrapCost: string;
   colors: Color[];
   active: boolean;
 }
@@ -57,6 +60,9 @@ const initialFormData: ItemFormData = {
   name: '',
   description: '',
   unit: 'un', // Conforme ABNT: minúscula
+  materialCost: '',
+  laborCost: '',
+  scrapCost: '',
   colors: [],
   active: true};
 
@@ -139,6 +145,9 @@ const Items: React.FC = () => {
         name: item.name,
         description: item.description || '',
         unit: item.unit,
+        materialCost: item.materialCost?.toString() || '',
+        laborCost: item.laborCost?.toString() || '',
+        scrapCost: item.scrapCost?.toString() || '',
         colors: item.colors || [],
         active: item.active});
     } else {
@@ -166,6 +175,9 @@ const Items: React.FC = () => {
         name: formData.name,
         description: formData.description || null,
         unit: formData.unit,
+        materialCost: formData.materialCost ? parseFloat(formData.materialCost) : null,
+        laborCost: formData.laborCost ? parseFloat(formData.laborCost) : null,
+        scrapCost: formData.scrapCost ? parseFloat(formData.scrapCost) : null,
         active: formData.active,
         colorIds: formData.colors.map(c => c.id)};
 
@@ -534,6 +546,68 @@ const Items: React.FC = () => {
                 />
               </Box>
             </Grid>
+            
+            {/* Custos */}
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1, mt: 1 }}>
+                💰 Custos (R$ por {formData.unit || 'unidade'})
+              </Typography>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                label="Custo Material"
+                type="number"
+                fullWidth
+                value={formData.materialCost}
+                onChange={(e) => setFormData({ ...formData, materialCost: e.target.value })}
+                placeholder="0,00"
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">R$</InputAdornment>,
+                }}
+                inputProps={{
+                  step: '0.01',
+                  min: '0'
+                }}
+                helperText="Custo de material por unidade"
+              />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                label="Custo Mão-de-Obra"
+                type="number"
+                fullWidth
+                value={formData.laborCost}
+                onChange={(e) => setFormData({ ...formData, laborCost: e.target.value })}
+                placeholder="0,00"
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">R$</InputAdornment>,
+                }}
+                inputProps={{
+                  step: '0.01',
+                  min: '0'
+                }}
+                helperText="Custo de mão-de-obra por unidade"
+              />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                label="Custo Refugo"
+                type="number"
+                fullWidth
+                value={formData.scrapCost}
+                onChange={(e) => setFormData({ ...formData, scrapCost: e.target.value })}
+                placeholder="0,00"
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">R$</InputAdornment>,
+                }}
+                inputProps={{
+                  step: '0.01',
+                  min: '0'
+                }}
+                helperText="Custo de refugo/desperdício por unidade"
+              />
+            </Grid>
+            
             <Grid item xs={12}>
               <Autocomplete
                 multiple

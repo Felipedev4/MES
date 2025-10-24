@@ -97,7 +97,7 @@ export async function getItem(req: AuthenticatedRequest, res: Response): Promise
 export async function createItem(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const companyId = req.user?.companyId; // Empresa do usuário autenticado
-    const { code, name, description, unit, active = true } = req.body;
+    const { code, name, description, unit, materialCost, laborCost, scrapCost, active = true } = req.body;
 
     // Verificar se código já existe
     const existingItem = await prisma.item.findUnique({
@@ -115,6 +115,9 @@ export async function createItem(req: AuthenticatedRequest, res: Response): Prom
         name,
         description,
         unit,
+        materialCost: materialCost !== null && materialCost !== undefined ? parseFloat(materialCost) : null,
+        laborCost: laborCost !== null && laborCost !== undefined ? parseFloat(laborCost) : null,
+        scrapCost: scrapCost !== null && scrapCost !== undefined ? parseFloat(scrapCost) : null,
         active,
         companyId, // Vincula à empresa do usuário
       },
@@ -134,7 +137,7 @@ export async function createItem(req: AuthenticatedRequest, res: Response): Prom
 export async function updateItem(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const { code, name, description, unit, active } = req.body;
+    const { code, name, description, unit, materialCost, laborCost, scrapCost, active } = req.body;
 
     // Verificar se item existe
     const existingItem = await prisma.item.findUnique({
@@ -164,6 +167,9 @@ export async function updateItem(req: AuthenticatedRequest, res: Response): Prom
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
     if (unit !== undefined) updateData.unit = unit;
+    if (materialCost !== undefined) updateData.materialCost = materialCost !== null ? parseFloat(materialCost) : null;
+    if (laborCost !== undefined) updateData.laborCost = laborCost !== null ? parseFloat(laborCost) : null;
+    if (scrapCost !== undefined) updateData.scrapCost = scrapCost !== null ? parseFloat(scrapCost) : null;
     if (active !== undefined) updateData.active = active;
 
     const item = await prisma.item.update({

@@ -76,6 +76,12 @@ model Item {
   referenceTypeId Int?
   companyId       Int? // Empresa dona do item
   active          Boolean  @default(true)
+  
+  // Custos (valores em R$)
+  materialCost    Decimal? @db.Decimal(10, 2) @map("material_cost") // Custo de material por unidade
+  laborCost       Decimal? @db.Decimal(10, 2) @map("labor_cost") // Custo de mão-de-obra por unidade
+  scrapCost       Decimal? @db.Decimal(10, 2) @map("scrap_cost") // Custo de refugo/desperdício por unidade
+  
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

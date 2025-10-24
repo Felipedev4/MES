@@ -56,6 +56,9 @@ export interface Item {
   name: string;
   description?: string;
   unit: string;
+  materialCost?: number;
+  laborCost?: number;
+  scrapCost?: number;
   active: boolean;
   createdAt: string;
   updatedAt: string;
