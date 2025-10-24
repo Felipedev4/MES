@@ -160,8 +160,10 @@ export class PlcConnection {
         if (value !== null) {
           // Verificar se o valor mudou
           const lastValue = this.lastValues.get(register.id) ?? null;
+          const isFirstReading = lastValue === null;
+          const hasChanged = value !== lastValue;
           
-          if (lastValue === null || value !== lastValue) {
+          if (isFirstReading || hasChanged) {
             // Valor mudou ou é a primeira leitura
             const change = lastValue !== null ? value - lastValue : 0;
             const symbol = change > 0 ? '+' : '';
@@ -176,6 +178,14 @@ export class PlcConnection {
             
             // NOVO: Criar apontamento automático se for contador de produção
             await this.handleProductionCounter(register, change, value, lastValue);
+          } else {
+            // Valor não mudou, mas enviar periodicamente (a cada 10 leituras)
+            const readCount = (this.lastValues.get(`count_${register.id}` as any) as number) || 0;
+            if (readCount % 10 === 0) {
+              logger.debug(`📊 ${register.registerName}: ${value} (sem mudança)`);
+              await this.sendDataToBackend(register.id, register.registerAddress, register.registerName, value, true);
+            }
+            this.lastValues.set(`count_${register.id}` as any, readCount + 1);
           }
         } else {
           // Erro na leitura
