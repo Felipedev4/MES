@@ -35,6 +35,9 @@ model User {
   shift                  Shift?                  @relation(fields: [shiftId], references: [id])
 
   @@index([shiftId])
+  @@index([role])
+  @@index([active])
+  @@index([email])
   @@map("users")
 }
 
@@ -81,6 +84,9 @@ model Item {
   productionOrders ProductionOrder[]
   itemColors       ItemColor[] // Cores disponíveis para este item
 
+  @@index([companyId, active])
+  @@index([referenceTypeId])
+  @@index([active])
   @@map("items")
 }
 
@@ -135,6 +141,8 @@ model Mold {
   maintenanceAlerts MaintenanceAlert[]
   emailLogs         EmailLog[]
 
+  @@index([companyId])
+  @@index([active])
   @@map("molds")
 }
 
@@ -175,6 +183,11 @@ model ProductionOrder {
   @@index([status])
   @@index([priority, plannedStartDate])
   @@index([plcConfigId, status])
+  @@index([companyId])
+  @@index([itemId])
+  @@index([moldId])
+  @@index([plannedStartDate])
+  @@index([sectorId])
   @@map("production_orders")
 }
 
@@ -238,6 +251,11 @@ model Downtime {
 
   @@index([productionOrderId, startTime])
   @@index([productionOrderId, endTime])
+  @@index([activityTypeId])
+  @@index([defectId])
+  @@index([responsibleId])
+  @@index([startTime])
+  @@index([type])
   @@map("downtimes")
 }
 
@@ -343,6 +361,7 @@ model Sector {
   defectSectors       DefectSector[] // Defeitos que este setor é responsável por resolver
   activityTypeSectors ActivityTypeSector[] // Tipos de atividade que este setor é responsável por resolver
 
+  @@index([companyId])
   @@map("sectors")
 }
 
@@ -399,6 +418,7 @@ model Defect {
   defectSectors     DefectSector[] // Setores responsáveis por resolver este defeito
   downtimes         Downtime[] // Paradas associadas a este defeito
 
+  @@index([active])
   @@map("defects")
 }
 
@@ -414,6 +434,8 @@ model DefectSector {
   sector Sector @relation(fields: [sectorId], references: [id], onDelete: Cascade)
 
   @@unique([defectId, sectorId]) // Um defeito não pode ter o mesmo setor duplicado
+  @@index([defectId])
+  @@index([sectorId])
   @@map("defect_sectors")
 }
 
@@ -454,6 +476,8 @@ model ProductionDefect {
 
   @@index([timestamp])
   @@index([productionOrderId, timestamp])
+  @@index([defectId])
+  @@index([productionOrderId])
   @@map("production_defects")
 }
 
@@ -471,6 +495,9 @@ model CycleChange {
   productionOrder ProductionOrder @relation(fields: [productionOrderId], references: [id])
   user            User?           @relation(fields: [userId], references: [id])
 
+  @@index([productionOrderId])
+  @@index([timestamp])
+  @@index([userId])
   @@map("cycle_changes")
 }
 
@@ -513,6 +540,8 @@ model PlcRegister {
   plcConfig      PlcConfig @relation(fields: [plcConfigId], references: [id], onDelete: Cascade)
   plcDataHistory PlcData[] // Histórico de leituras deste registro
 
+  @@index([plcConfigId])
+  @@index([enabled])
   @@map("plc_registers")
 }
 
@@ -529,6 +558,8 @@ model UserCompany {
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([userId, companyId])
+  @@index([userId])
+  @@index([companyId])
   @@map("user_companies")
 }
 
