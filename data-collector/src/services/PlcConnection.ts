@@ -164,6 +164,11 @@ export class PlcConnection {
           const isFirstReading = lastValue === null;
           const hasChanged = value !== lastValue;
           
+          // DEBUG: Log detalhado para D40
+          if (register.registerName === 'D40') {
+            logger.info(`🔍 DEBUG D40: value=${value}, lastValue=${lastValue}, isFirstReading=${isFirstReading}, hasChanged=${hasChanged}`);
+          }
+          
           if (isFirstReading || hasChanged) {
             // Valor mudou ou é a primeira leitura
             const change = lastValue !== null ? value - lastValue : 0;
@@ -182,6 +187,12 @@ export class PlcConnection {
           } else {
             // Valor não mudou, mas enviar periodicamente (a cada 10 leituras)
             const readCount = this.readCounts.get(register.id) || 0;
+            
+            // DEBUG: Log para D40
+            if (register.registerName === 'D40') {
+              logger.info(`🔍 DEBUG D40 (sem mudança): readCount=${readCount}, will send=${readCount % 10 === 0}`);
+            }
+            
             if (readCount % 10 === 0) {
               logger.debug(`📊 ${register.registerName}: ${value} (sem mudança)`);
               await this.sendDataToBackend(register.id, register.registerAddress, register.registerName, value, true);

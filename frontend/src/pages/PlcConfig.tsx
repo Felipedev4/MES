@@ -88,6 +88,8 @@ const PlcConfigPage: React.FC = () => {
     description: '',
     dataType: 'INT16',
     enabled: true});
+  
+  const [editingRegister, setEditingRegister] = useState<any | null>(null);
 
   useEffect(() => {
     loadConfigs();
@@ -217,6 +219,7 @@ const PlcConfigPage: React.FC = () => {
   // Registro functions
   const handleOpenRegisterDialog = (config: PlcConfig) => {
     setSelectedConfig(config);
+    setEditingRegister(null);
     setRegisterFormData({
       registerName: '',
       registerAddress: 0,
@@ -226,18 +229,38 @@ const PlcConfigPage: React.FC = () => {
     setRegisterDialogOpen(true);
   };
 
+  const handleOpenEditRegisterDialog = (config: PlcConfig, register: any) => {
+    setSelectedConfig(config);
+    setEditingRegister(register);
+    setRegisterFormData({
+      registerName: register.registerName,
+      registerAddress: register.registerAddress,
+      description: register.description || '',
+      dataType: register.dataType,
+      enabled: register.enabled});
+    setRegisterDialogOpen(true);
+  };
+
   const handleSubmitRegister = async () => {
     if (!selectedConfig) return;
 
     try {
-      await plcConfigService.createRegister({
-        ...registerFormData,
-        plcConfigId: selectedConfig.id});
-      enqueueSnackbar('Registro adicionado com sucesso!', { variant: 'success' });
+      if (editingRegister) {
+        // Editando registro existente
+        await plcConfigService.updateRegister(editingRegister.id, registerFormData);
+        enqueueSnackbar('✅ Registro atualizado com sucesso!', { variant: 'success' });
+      } else {
+        // Criando novo registro
+        await plcConfigService.createRegister({
+          ...registerFormData,
+          plcConfigId: selectedConfig.id});
+        enqueueSnackbar('✅ Registro adicionado com sucesso!', { variant: 'success' });
+      }
       setRegisterDialogOpen(false);
+      setEditingRegister(null);
       loadConfigs();
     } catch (error) {
-      enqueueSnackbar('Erro ao adicionar registro', { variant: 'error' });
+      enqueueSnackbar('❌ Erro ao salvar registro', { variant: 'error' });
     }
   };
 
@@ -498,8 +521,17 @@ const PlcConfigPage: React.FC = () => {
                                     <TableCell align="right">
                                       <IconButton
                                         size="small"
+                                        color="primary"
+                                        onClick={() => handleOpenEditRegisterDialog(config, register)}
+                                        title="Editar"
+                                      >
+                                        <EditIcon />
+                                      </IconButton>
+                                      <IconButton
+                                        size="small"
                                         color="error"
                                         onClick={() => handleDeleteRegister(register.id)}
+                                        title="Deletar"
                                       >
                                         <DeleteIcon />
                                       </IconButton>
@@ -679,11 +711,16 @@ const PlcConfigPage: React.FC = () => {
       {/* Dialog de Registro */}
       <Dialog
         open={registerDialogOpen}
-        onClose={() => setRegisterDialogOpen(false)}
+        onClose={() => {
+          setRegisterDialogOpen(false);
+          setEditingRegister(null);
+        }}
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Adicionar Registro</DialogTitle>
+        <DialogTitle>
+          {editingRegister ? 'Editar Registro' : 'Adicionar Registro'}
+        </DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={6}>
