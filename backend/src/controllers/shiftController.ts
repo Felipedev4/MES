@@ -42,7 +42,7 @@ export const getAllShifts = async (req: Request, res: Response) => {
 /**
  * Buscar turno por ID
  */
-export const getShiftById = async (req: Request, res: Response) => {
+export const getShiftById = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     
@@ -60,7 +60,8 @@ export const getShiftById = async (req: Request, res: Response) => {
     });
     
     if (!shift) {
-      return res.status(404).json({ error: 'Turno não encontrado' });
+      res.status(404).json({ error: 'Turno não encontrado' });
+      return;
     }
     
     res.json(shift);
@@ -73,7 +74,7 @@ export const getShiftById = async (req: Request, res: Response) => {
 /**
  * Criar novo turno
  */
-export const createShift = async (req: Request, res: Response) => {
+export const createShift = async (req: Request, res: Response): Promise<void> => {
   try {
     const { companyId, name, code, startTime, endTime, description, active } = req.body;
     
@@ -86,7 +87,8 @@ export const createShift = async (req: Request, res: Response) => {
     });
     
     if (existingShift) {
-      return res.status(400).json({ error: 'Já existe um turno com este código para esta empresa' });
+      res.status(400).json({ error: 'Já existe um turno com este código para esta empresa' });
+      return;
     }
     
     const shift = await prisma.shift.create({
@@ -120,7 +122,7 @@ export const createShift = async (req: Request, res: Response) => {
 /**
  * Atualizar turno
  */
-export const updateShift = async (req: Request, res: Response) => {
+export const updateShift = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const { name, code, startTime, endTime, description, active } = req.body;
@@ -131,7 +133,8 @@ export const updateShift = async (req: Request, res: Response) => {
     });
     
     if (!existingShift) {
-      return res.status(404).json({ error: 'Turno não encontrado' });
+      res.status(404).json({ error: 'Turno não encontrado' });
+      return;
     }
     
     // Se estiver mudando o código, verificar se não conflita
@@ -145,7 +148,8 @@ export const updateShift = async (req: Request, res: Response) => {
       });
       
       if (conflictShift) {
-        return res.status(400).json({ error: 'Já existe um turno com este código para esta empresa' });
+        res.status(400).json({ error: 'Já existe um turno com este código para esta empresa' });
+        return;
       }
     }
     
@@ -180,7 +184,7 @@ export const updateShift = async (req: Request, res: Response) => {
 /**
  * Deletar turno
  */
-export const deleteShift = async (req: Request, res: Response) => {
+export const deleteShift = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     
@@ -190,7 +194,8 @@ export const deleteShift = async (req: Request, res: Response) => {
     });
     
     if (!existingShift) {
-      return res.status(404).json({ error: 'Turno não encontrado' });
+      res.status(404).json({ error: 'Turno não encontrado' });
+      return;
     }
     
     await prisma.shift.delete({
@@ -207,12 +212,13 @@ export const deleteShift = async (req: Request, res: Response) => {
 /**
  * Determinar turno baseado na hora
  */
-export const getShiftByTime = async (req: Request, res: Response) => {
+export const getShiftByTime = async (req: Request, res: Response): Promise<void> => {
   try {
     const { companyId, time } = req.query;
     
     if (!companyId || !time) {
-      return res.status(400).json({ error: 'companyId e time são obrigatórios' });
+      res.status(400).json({ error: 'companyId e time são obrigatórios' });
+      return;
     }
     
     const shifts = await prisma.shift.findMany({

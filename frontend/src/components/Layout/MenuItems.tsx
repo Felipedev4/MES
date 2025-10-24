@@ -28,6 +28,7 @@ import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import CategoryIcon from '@mui/icons-material/Category';
 import BugReportIcon from '@mui/icons-material/BugReport';
 import LabelIcon from '@mui/icons-material/Label';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import GroupWorkIcon from '@mui/icons-material/GroupWork';
 import EmailIcon from '@mui/icons-material/Email';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
@@ -110,6 +111,7 @@ const MenuItems: React.FC<MenuItemsProps> = ({ onItemClick }) => {
         { text: 'Defeitos', icon: <BugReportIcon />, path: '/defects', resource: 'defects' },
         { text: 'Tipos de Atividade', icon: <CategoryIcon />, path: '/activity-types', resource: 'activity_types' },
         { text: 'Tipos de Referência', icon: <LabelIcon />, path: '/reference-types', resource: 'reference_types' },
+        { text: 'Turnos', icon: <AccessTimeIcon />, path: '/shifts', resource: 'shifts' },
       ]
     },
     {
