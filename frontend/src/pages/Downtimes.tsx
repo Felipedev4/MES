@@ -50,6 +50,7 @@ import moment from 'moment';
 
 // Schema de validação
 const downtimeSchema = yup.object({
+  productionOrderId: yup.number().nullable(),
   type: yup.string().required('Tipo é obrigatório').oneOf(['PRODUCTIVE', 'UNPRODUCTIVE', 'PLANNED']),
   reason: yup.string().required('Motivo é obrigatório').max(200),
   description: yup.string().max(1000),
@@ -60,6 +61,7 @@ type DowntimeFormData = yup.InferType<typeof downtimeSchema>;
 
 const Downtimes: React.FC = () => {
   const [downtimes, setDowntimes] = useState<Downtime[]>([]);
+  const [productionOrders, setProductionOrders] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('ALL');
@@ -70,6 +72,7 @@ const Downtimes: React.FC = () => {
   const { control, handleSubmit, reset, formState: { errors } } = useForm<DowntimeFormData>({
     resolver: yupResolver(downtimeSchema),
     defaultValues: {
+      productionOrderId: null as any,
       type: 'UNPRODUCTIVE' as any,
       reason: '',
       description: '',
@@ -85,12 +88,27 @@ const Downtimes: React.FC = () => {
     }
   };
 
+  const loadProductionOrders = async () => {
+    try {
+      const response = await api.get('/production-orders');
+      // Filtrar apenas ordens ativas ou em progresso
+      const activeOrders = response.data.filter((order: any) => 
+        order.status === 'IN_PROGRESS' || order.status === 'PENDING'
+      );
+      setProductionOrders(activeOrders);
+    } catch (error) {
+      console.error('Erro ao carregar ordens de produção:', error);
+    }
+  };
+
   useEffect(() => {
     loadDowntimes();
+    loadProductionOrders();
   }, []);
 
   const handleOpenDialog = () => {
     reset({
+      productionOrderId: null as any,
       type: 'UNPRODUCTIVE' as any,
       reason: '',
       description: '',
@@ -292,18 +310,19 @@ const Downtimes: React.FC = () => {
           <TableHead>
             <TableRow>
               <TableCell width="10%">Tipo</TableCell>
-              <TableCell width="25%">Motivo</TableCell>
-              <TableCell width="15%">Início</TableCell>
-              <TableCell width="15%">Fim</TableCell>
-              <TableCell width="12%">Duração</TableCell>
-              <TableCell width="13%">Status</TableCell>
-              <TableCell width="10%" align="center">Ações</TableCell>
+              <TableCell width="20%">Motivo</TableCell>
+              <TableCell width="15%">Ordem</TableCell>
+              <TableCell width="13%">Início</TableCell>
+              <TableCell width="13%">Fim</TableCell>
+              <TableCell width="10%">Duração</TableCell>
+              <TableCell width="10%">Status</TableCell>
+              <TableCell width="9%" align="center">Ações</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {filteredDowntimes.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                   <Typography variant="body2" color="text.secondary">
                     {searchTerm || filterType !== 'ALL' || filterStatus !== 'ALL'
                       ? 'Nenhuma parada encontrada com os filtros aplicados'
@@ -350,6 +369,25 @@ const Downtimes: React.FC = () => {
                       >
                         {downtime.description}
                       </Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {downtime.productionOrder ? (
+                      <Stack spacing={0.5}>
+                        <Typography variant="body2" fontWeight={600} color="primary">
+                          {downtime.productionOrder.orderNumber}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {downtime.productionOrder.item?.name || 'N/A'}
+                        </Typography>
+                      </Stack>
+                    ) : (
+                      <Chip
+                        label="Geral"
+                        size="small"
+                        variant="outlined"
+                        sx={{ fontWeight: 500 }}
+                      />
                     )}
                   </TableCell>
                   <TableCell>
@@ -424,6 +462,39 @@ const Downtimes: React.FC = () => {
             </Stack>
           </DialogTitle>
           <DialogContent>
+            <Controller
+              name="productionOrderId"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  select
+                  label="Ordem de Produção (Opcional)"
+                  fullWidth
+                  margin="normal"
+                  error={!!errors.productionOrderId}
+                  helperText={errors.productionOrderId?.message || 'Vincular esta parada a uma ordem específica'}
+                  value={field.value || ''}
+                  onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : null)}
+                >
+                  <MenuItem value="">
+                    <em>Nenhuma (Parada Geral)</em>
+                  </MenuItem>
+                  {productionOrders.map((order) => (
+                    <MenuItem key={order.id} value={order.id}>
+                      <Stack direction="column" spacing={0.5}>
+                        <Typography variant="body2" fontWeight={600}>
+                          {order.orderNumber} - {order.item?.name || 'N/A'}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {order.item?.code || ''} • Máquina: {order.plcConfig?.name || 'N/A'}
+                        </Typography>
+                      </Stack>
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+            />
             <Controller
               name="type"
               control={control}
