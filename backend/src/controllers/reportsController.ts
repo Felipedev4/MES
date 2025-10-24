@@ -254,9 +254,9 @@ export const getDowntimeReport = async (req: Request, res: Response) => {
             plcConfig: true,
           },
         },
-        user: {
+        responsible: {
           include: {
-            shift: true, // Turno padrão do operador
+            shift: true, // Turno padrão do operador responsável
           },
         },
         defect: true,
@@ -291,9 +291,9 @@ export const getDowntimeReport = async (req: Request, res: Response) => {
       else if (hour >= 14 && hour < 22) shift = '2º Turno';
       else shift = '3º Turno';
       
-      // Turno padrão do operador
-      const operatorShift = downtime.user?.shift 
-        ? `${downtime.user.shift.name} (${downtime.user.shift.code})`
+      // Turno padrão do operador responsável
+      const operatorShift = downtime.responsible?.shift 
+        ? `${downtime.responsible.shift.name} (${downtime.responsible.shift.code})`
         : '-';
       
       return {
@@ -312,13 +312,13 @@ export const getDowntimeReport = async (req: Request, res: Response) => {
         'Código Atividade': downtime.activityType?.code || '-',
         'Tipo': downtime.type === 'PRODUCTIVE' ? 'Produtiva' : 'Improdutiva',
         'Classificação': downtime.type === 'PRODUCTIVE' ? 'Setup/Troca' : 'Falha/Manutenção',
-        'Operador Responsável': downtime.user?.name || '-',
-        'Matrícula Operador': downtime.user?.employeeCode || '-',
+        'Operador Responsável': downtime.responsible?.name || '-',
+        'Matrícula Operador': downtime.responsible?.employeeCode || '-',
         'Turno do Operador': operatorShift,
         'Defeito Relacionado': downtime.defect?.name || '-',
         'Setores Responsáveis': downtime.activityType?.activityTypeSectors?.map((ats: any) => ats.sector.name).join(', ') || '-',
         'Custo Estimado (R$)': estimatedCost,
-        'Observações': downtime.notes || '-',
+        'Observações': downtime.description || '-',
       };
     });
     
