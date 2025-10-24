@@ -8,7 +8,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 /**
- * Relatório de Produção
+ * Relatório de Produção Detalhado
  */
 export const getProductionReport = async (req: Request, res: Response) => {
   try {
@@ -36,29 +36,58 @@ export const getProductionReport = async (req: Request, res: Response) => {
           include: {
             item: true,
             color: true,
+            mold: true,
             plcConfig: true,
+            sector: true,
           },
         },
+        user: true,
       },
       orderBy: {
         timestamp: 'desc',
       },
     });
     
-    const reportData = appointments.map((appt: any) => ({
-      'Data': new Date(appt.timestamp).toLocaleDateString('pt-BR'),
-      'Hora': new Date(appt.timestamp).toLocaleTimeString('pt-BR'),
-      'Ordem': appt.productionOrder?.orderNumber || '-',
-      'Item': appt.productionOrder?.item?.name || '-',
-      'Cor': appt.productionOrder?.color?.name || '-',
-      'Máquina': appt.productionOrder?.plcConfig?.name || '-',
-      'Qtd Apontada': appt.quantity || 0,
-      'Qtd Rejeitada': appt.rejectedQuantity || 0,
-      'Qtd Boa': (appt.quantity || 0) - (appt.rejectedQuantity || 0),
-      'Tipo': appt.automatic ? 'Automático' : 'Manual',
-      'Duração (min)': appt.durationSeconds ? Math.round(appt.durationSeconds / 60) : '-',
-      'Observações': appt.notes || '-',
-    }));
+    const reportData = appointments.map((appt: any) => {
+      const durationMinutes = appt.durationSeconds ? Math.round(appt.durationSeconds / 60) : 0;
+      const quantityGood = (appt.quantity || 0) - (appt.rejectedQuantity || 0);
+      const rejectionRate = appt.quantity > 0 ? ((appt.rejectedQuantity / appt.quantity) * 100).toFixed(2) : '0.00';
+      const productionRate = durationMinutes > 0 ? ((appt.quantity / durationMinutes) * 60).toFixed(2) : '0.00';
+      const cavities = appt.productionOrder?.mold?.activeCavities || appt.productionOrder?.mold?.cavities || 1;
+      const cycleTime = appt.productionOrder?.mold?.cycleTime || 0;
+      
+      // Determinar turno baseado na hora
+      const hour = new Date(appt.timestamp).getHours();
+      let shift = '';
+      if (hour >= 6 && hour < 14) shift = '1º Turno (06:00-14:00)';
+      else if (hour >= 14 && hour < 22) shift = '2º Turno (14:00-22:00)';
+      else shift = '3º Turno (22:00-06:00)';
+      
+      return {
+        'Data': new Date(appt.timestamp).toLocaleDateString('pt-BR'),
+        'Hora': new Date(appt.timestamp).toLocaleTimeString('pt-BR'),
+        'Turno': shift,
+        'Ordem': appt.productionOrder?.orderNumber || '-',
+        'Item': appt.productionOrder?.item?.name || '-',
+        'Referência': appt.productionOrder?.item?.code || '-',
+        'Cor': appt.productionOrder?.color?.name || '-',
+        'Molde': appt.productionOrder?.mold?.name || '-',
+        'Cavidades': cavities,
+        'Tempo Ciclo (s)': cycleTime,
+        'Máquina/CLP': appt.productionOrder?.plcConfig?.name || '-',
+        'Setor': appt.productionOrder?.sector?.name || '-',
+        'Operador': appt.user?.name || '-',
+        'Tipo Apontamento': appt.automatic ? 'Automático (CLP)' : 'Manual',
+        'Qtd Produzida': appt.quantity || 0,
+        'Qtd Rejeitada': appt.rejectedQuantity || 0,
+        'Qtd Aprovada': quantityGood,
+        'Taxa Rejeição (%)': rejectionRate,
+        'Duração (min)': durationMinutes || '-',
+        'Taxa Produção (pçs/h)': productionRate,
+        'Eficiência Cavidades (%)': cavities > 0 ? ((appt.quantity / (cavities * Math.max(1, durationMinutes))) * 100).toFixed(2) : '0.00',
+        'Observações': appt.notes || '-',
+      };
+    });
     
     res.json(reportData);
   } catch (error) {
@@ -68,7 +97,7 @@ export const getProductionReport = async (req: Request, res: Response) => {
 };
 
 /**
- * Relatório de Defeitos
+ * Relatório de Defeitos Detalhado
  */
 export const getDefectsReport = async (req: Request, res: Response) => {
   try {
@@ -104,6 +133,9 @@ export const getDefectsReport = async (req: Request, res: Response) => {
         productionOrder: {
           include: {
             item: true,
+            color: true,
+            mold: true,
+            plcConfig: true,
           },
         },
       },
@@ -112,16 +144,41 @@ export const getDefectsReport = async (req: Request, res: Response) => {
       },
     });
     
-    const reportData = defects.map((defect: any) => ({
-      'Data': new Date(defect.createdAt).toLocaleDateString('pt-BR'),
-      'Hora': new Date(defect.createdAt).toLocaleTimeString('pt-BR'),
-      'Defeito': defect.defect?.name || '-',
-      'Severidade': defect.defect?.severity || '-',
-      'Item': defect.productionOrder?.item?.name || '-',
-      'Quantidade': defect.quantity,
-      'Setores Responsáveis': defect.defect?.defectSectors?.map((ds: any) => ds.sector.name).join(', ') || '-',
-      'Observações': defect.notes || '-',
-    }));
+    const reportData = defects.map((defect: any) => {
+      const hour = new Date(defect.createdAt).getHours();
+      let shift = '';
+      if (hour >= 6 && hour < 14) shift = '1º Turno';
+      else if (hour >= 14 && hour < 22) shift = '2º Turno';
+      else shift = '3º Turno';
+      
+      const totalProduced = defect.productionOrder?.producedQuantity || 0;
+      const defectRate = totalProduced > 0 ? ((defect.quantity / totalProduced) * 100).toFixed(2) : '0.00';
+      
+      // Custo estimado (valor simbólico - ajustar conforme necessário)
+      const estimatedCost = (defect.quantity * 0.50).toFixed(2); // R$ 0,50 por peça defeituosa
+      
+      return {
+        'Data': new Date(defect.createdAt).toLocaleDateString('pt-BR'),
+        'Hora': new Date(defect.createdAt).toLocaleTimeString('pt-BR'),
+        'Turno': shift,
+        'Ordem': defect.productionOrder?.orderNumber || '-',
+        'Item': defect.productionOrder?.item?.name || '-',
+        'Referência': defect.productionOrder?.item?.code || '-',
+        'Cor': defect.productionOrder?.color?.name || '-',
+        'Molde': defect.productionOrder?.mold?.name || '-',
+        'Máquina/CLP': defect.productionOrder?.plcConfig?.name || '-',
+        'Defeito': defect.defect?.name || '-',
+        'Código Defeito': defect.defect?.code || '-',
+        'Severidade': defect.defect?.severity || '-',
+        'Qtd Defeituosa': defect.quantity,
+        'Total Produzido': totalProduced,
+        'Taxa Defeito (%)': defectRate,
+        'Custo Estimado (R$)': estimatedCost,
+        'Setores Responsáveis': defect.defect?.defectSectors?.map((ds: any) => ds.sector.name).join(', ') || '-',
+        'Descrição': defect.defect?.description || '-',
+        'Observações': defect.notes || '-',
+      };
+    });
     
     res.json(reportData);
   } catch (error) {
@@ -131,7 +188,7 @@ export const getDefectsReport = async (req: Request, res: Response) => {
 };
 
 /**
- * Relatório de Paradas (Downtime)
+ * Relatório de Paradas (Downtime) Detalhado
  */
 export const getDowntimeReport = async (req: Request, res: Response) => {
   try {
@@ -167,30 +224,60 @@ export const getDowntimeReport = async (req: Request, res: Response) => {
         productionOrder: {
           include: {
             item: true,
+            plcConfig: true,
           },
         },
+        defect: true,
       },
       orderBy: {
         startTime: 'desc',
       },
     });
     
+    // Calcular tempo total para percentuais
+    const totalMinutes = downtimes.reduce((sum, dt) => {
+      const duration = dt.endTime 
+        ? Math.round((new Date(dt.endTime).getTime() - new Date(dt.startTime).getTime()) / 60000)
+        : 0;
+      return sum + duration;
+    }, 0);
+    
     const reportData = downtimes.map((downtime: any) => {
       const duration = downtime.endTime 
         ? Math.round((new Date(downtime.endTime).getTime() - new Date(downtime.startTime).getTime()) / 60000)
         : 0;
       
+      const durationHours = (duration / 60).toFixed(2);
+      const percentOfTotal = totalMinutes > 0 ? ((duration / totalMinutes) * 100).toFixed(2) : '0.00';
+      
+      // Custo estimado da parada (R$ 100/hora de máquina parada - ajustar conforme necessário)
+      const estimatedCost = (parseFloat(durationHours) * 100).toFixed(2);
+      
+      const hour = new Date(downtime.startTime).getHours();
+      let shift = '';
+      if (hour >= 6 && hour < 14) shift = '1º Turno';
+      else if (hour >= 14 && hour < 22) shift = '2º Turno';
+      else shift = '3º Turno';
+      
       return {
         'Data Início': new Date(downtime.startTime).toLocaleDateString('pt-BR'),
         'Hora Início': new Date(downtime.startTime).toLocaleTimeString('pt-BR'),
-        'Data Fim': downtime.endTime ? new Date(downtime.endTime).toLocaleDateString('pt-BR') : '-',
+        'Data Fim': downtime.endTime ? new Date(downtime.endTime).toLocaleDateString('pt-BR') : 'Em Andamento',
         'Hora Fim': downtime.endTime ? new Date(downtime.endTime).toLocaleTimeString('pt-BR') : '-',
+        'Turno': shift,
         'Duração (min)': duration,
-        'Atividade': downtime.activityType?.name || '-',
-        'Tipo': downtime.type === 'PRODUCTIVE' ? 'Produtiva' : 'Improdutiva',
-        'Item': downtime.productionOrder?.item?.name || '-',
+        'Duração (h)': durationHours,
+        '% do Total': percentOfTotal,
         'Ordem': downtime.productionOrder?.orderNumber || '-',
-        'Setores Vinculados': downtime.activityType?.activityTypeSectors?.map((ats: any) => ats.sector.name).join(', ') || '-',
+        'Item': downtime.productionOrder?.item?.name || '-',
+        'Máquina/CLP': downtime.productionOrder?.plcConfig?.name || '-',
+        'Atividade': downtime.activityType?.name || '-',
+        'Código Atividade': downtime.activityType?.code || '-',
+        'Tipo': downtime.type === 'PRODUCTIVE' ? 'Produtiva' : 'Improdutiva',
+        'Classificação': downtime.type === 'PRODUCTIVE' ? 'Setup/Troca' : 'Falha/Manutenção',
+        'Defeito Relacionado': downtime.defect?.name || '-',
+        'Setores Responsáveis': downtime.activityType?.activityTypeSectors?.map((ats: any) => ats.sector.name).join(', ') || '-',
+        'Custo Estimado (R$)': estimatedCost,
         'Observações': downtime.notes || '-',
       };
     });
@@ -227,6 +314,9 @@ export const getEfficiencyReport = async (req: Request, res: Response) => {
       include: {
         item: true,
         plcConfig: true,
+        mold: true,
+        downtimes: true,
+        productionAppointments: true,
       },
       orderBy: {
         plannedStartDate: 'desc',
@@ -234,34 +324,97 @@ export const getEfficiencyReport = async (req: Request, res: Response) => {
     });
     
     const reportData = orders.map((order: any) => {
-      const plannedTime = order.startDate && order.endDate
-        ? Math.round((new Date(order.endDate).getTime() - new Date(order.startDate).getTime()) / 60000)
+      // Cálculo de tempos
+      const plannedTime = order.plannedEndDate && order.plannedStartDate
+        ? Math.round((new Date(order.plannedEndDate).getTime() - new Date(order.plannedStartDate).getTime()) / 60000)
         : 0;
       
-      const produced = order.producedQuantity || 0;
-      const rejected = order.rejectedQuantity || 0;
-      const good = produced - rejected;
-      const planned = order.plannedQuantity || 0;
+      const actualStartDate = order.actualStartDate ? new Date(order.actualStartDate) : null;
+      const actualEndDate = order.actualEndDate ? new Date(order.actualEndDate) : null;
+      const actualTime = actualStartDate && actualEndDate
+        ? Math.round((actualEndDate.getTime() - actualStartDate.getTime()) / 60000)
+        : 0;
       
-      const availability = plannedTime > 0 ? 100 : 0; // Simplificado
-      const performance = planned > 0 ? Math.min((produced / planned) * 100, 100) : 0;
-      const quality = produced > 0 ? (good / produced) * 100 : 0;
-      const oee = (availability * performance * quality) / 10000;
+      // Tempo de paradas
+      const downtimeMinutes = order.downtimes?.reduce((sum: number, dt: any) => {
+        const duration = dt.endTime 
+          ? Math.round((new Date(dt.endTime).getTime() - new Date(dt.startTime).getTime()) / 60000)
+          : 0;
+        return sum + duration;
+      }, 0) || 0;
+      
+      const productiveDowntime = order.downtimes?.reduce((sum: number, dt: any) => {
+        if (dt.type === 'PRODUCTIVE') {
+          const duration = dt.endTime 
+            ? Math.round((new Date(dt.endTime).getTime() - new Date(dt.startTime).getTime()) / 60000)
+            : 0;
+          return sum + duration;
+        }
+        return sum;
+      }, 0) || 0;
+      
+      const unproductiveDowntime = downtimeMinutes - productiveDowntime;
+      
+      // Tempo operacional real (sem paradas improdutivas)
+      const operatingTime = Math.max(0, actualTime - unproductiveDowntime);
+      
+      // Cálculos OEE
+      const availability = plannedTime > 0 
+        ? ((operatingTime / plannedTime) * 100).toFixed(2) 
+        : '0.00';
+      
+      const performance = order.plannedQuantity > 0 
+        ? ((order.producedQuantity / order.plannedQuantity) * 100).toFixed(2) 
+        : '0.00';
+      
+      const quality = order.producedQuantity > 0 
+        ? (((order.producedQuantity - order.rejectedQuantity) / order.producedQuantity) * 100).toFixed(2) 
+        : '0.00';
+      
+      const oee = ((parseFloat(availability) * parseFloat(performance) * parseFloat(quality)) / 10000).toFixed(2);
+      
+      // Métricas adicionais
+      const cycleTimeIdeal = order.mold?.cycleTime || 0;
+      const cycleTimeReal = order.producedQuantity > 0 && operatingTime > 0
+        ? (operatingTime * 60 / order.producedQuantity).toFixed(2)
+        : '0.00';
+      
+      const speedLoss = cycleTimeIdeal > 0 && parseFloat(cycleTimeReal) > cycleTimeIdeal
+        ? (((parseFloat(cycleTimeReal) - cycleTimeIdeal) / cycleTimeIdeal) * 100).toFixed(2)
+        : '0.00';
+      
+      const utilizationRate = plannedTime > 0
+        ? ((actualTime / plannedTime) * 100).toFixed(2)
+        : '0.00';
       
       return {
-        'Data': order.startDate ? new Date(order.startDate).toLocaleDateString('pt-BR') : '-',
-        'Ordem': order.orderNumber || '-',
+        'Data': order.plannedStartDate ? new Date(order.plannedStartDate).toLocaleDateString('pt-BR') : '-',
+        'Ordem': order.orderNumber,
         'Item': order.item?.name || '-',
-        'Máquina': order.plcConfig?.name || '-',
+        'Referência': order.item?.code || '-',
+        'Molde': order.mold?.name || '-',
+        'Cavidades': order.mold?.activeCavities || order.mold?.cavities || 1,
+        'Máquina/CLP': order.plcConfig?.name || '-',
+        'Status': order.status === 'COMPLETED' ? 'Concluída' : order.status === 'IN_PROGRESS' ? 'Em Andamento' : 'Pendente',
         'Tempo Planejado (min)': plannedTime,
-        'Qtd Planejada': planned,
-        'Qtd Produzida': produced,
-        'Qtd Rejeitada': rejected,
-        'Qtd Boa': good,
-        'Disponibilidade (%)': availability.toFixed(2),
-        'Performance (%)': performance.toFixed(2),
-        'Qualidade (%)': quality.toFixed(2),
-        'OEE (%)': oee.toFixed(2),
+        'Tempo Real (min)': actualTime,
+        'Tempo Operacional (min)': operatingTime,
+        'Paradas Produtivas (min)': productiveDowntime,
+        'Paradas Improdutivas (min)': unproductiveDowntime,
+        'Total Paradas (min)': downtimeMinutes,
+        'Qtd Planejada': order.plannedQuantity,
+        'Qtd Produzida': order.producedQuantity,
+        'Qtd Rejeitada': order.rejectedQuantity,
+        'Qtd Aprovada': order.producedQuantity - order.rejectedQuantity,
+        'Tempo Ciclo Ideal (s)': cycleTimeIdeal,
+        'Tempo Ciclo Real (s)': cycleTimeReal,
+        'Perda Velocidade (%)': speedLoss,
+        'Taxa Utilização (%)': utilizationRate,
+        'Disponibilidade (%)': availability,
+        'Performance (%)': performance,
+        'Qualidade (%)': quality,
+        'OEE (%)': oee,
+        'Classificação OEE': parseFloat(oee) >= 85 ? 'Classe Mundial' : parseFloat(oee) >= 60 ? 'Boa' : parseFloat(oee) >= 40 ? 'Regular' : 'Ruim',
       };
     });
     
@@ -299,6 +452,9 @@ export const getOrdersReport = async (req: Request, res: Response) => {
         color: true,
         mold: true,
         plcConfig: true,
+        sector: true,
+        downtimes: true,
+        productionAppointments: true,
       },
       orderBy: {
         plannedStartDate: 'desc',
@@ -306,10 +462,50 @@ export const getOrdersReport = async (req: Request, res: Response) => {
     });
     
     const reportData = orders.map((order: any) => {
-      const progress = order.plannedQuantity > 0
-        ? ((order.producedQuantity / order.plannedQuantity) * 100).toFixed(2)
+      // Cálculos de tempo
+      const plannedTime = order.plannedEndDate && order.plannedStartDate
+        ? Math.round((new Date(order.plannedEndDate).getTime() - new Date(order.plannedStartDate).getTime()) / 60000)
+        : 0;
+      
+      const actualTime = order.actualEndDate && order.actualStartDate
+        ? Math.round((new Date(order.actualEndDate).getTime() - new Date(order.actualStartDate).getTime()) / 60000)
+        : 0;
+      
+      const timeDeviation = actualTime - plannedTime;
+      const timeDeviationPercent = plannedTime > 0 
+        ? ((timeDeviation / plannedTime) * 100).toFixed(2) 
         : '0.00';
       
+      // Cálculos de quantidade
+      const quantityGood = order.producedQuantity - order.rejectedQuantity;
+      const completionRate = order.plannedQuantity > 0 
+        ? ((order.producedQuantity / order.plannedQuantity) * 100).toFixed(2) 
+        : '0.00';
+      
+      const efficiencyRate = order.plannedQuantity > 0 
+        ? ((quantityGood / order.plannedQuantity) * 100).toFixed(2) 
+        : '0.00';
+      
+      // Cálculos de custo (valores estimados - ajustar conforme necessário)
+      const materialCostPerPiece = 0.80; // R$ 0,80 por peça
+      const laborCostPerHour = 50; // R$ 50/hora
+      
+      const materialCost = (order.producedQuantity * materialCostPerPiece).toFixed(2);
+      const laborCost = ((actualTime / 60) * laborCostPerHour).toFixed(2);
+      const wasteCost = (order.rejectedQuantity * materialCostPerPiece).toFixed(2);
+      const totalCost = (parseFloat(materialCost) + parseFloat(laborCost) + parseFloat(wasteCost)).toFixed(2);
+      
+      const costPerPiece = order.producedQuantity > 0 
+        ? (parseFloat(totalCost) / order.producedQuantity).toFixed(2) 
+        : '0.00';
+      
+      // Tempo médio por peça
+      const avgTimePerPiece = order.producedQuantity > 0 && actualTime > 0
+        ? (actualTime / order.producedQuantity).toFixed(2)
+        : '0.00';
+      
+      // Status de prazo
+      let deadlineStatus = 'No Prazo';
       const statusMap: any = {
         PROGRAMMING: 'Programação',
         ACTIVE: 'Ativa',
@@ -318,23 +514,53 @@ export const getOrdersReport = async (req: Request, res: Response) => {
         CANCELLED: 'Cancelada',
       };
       
+      if (order.status === 'FINISHED' || order.status === 'COMPLETED') {
+        if (timeDeviation > 0) deadlineStatus = 'Atrasada';
+        else if (timeDeviation < 0) deadlineStatus = 'Adiantada';
+      } else if (order.status === 'ACTIVE' || order.status === 'IN_PROGRESS') {
+        const now = new Date();
+        if (order.plannedEndDate && now > new Date(order.plannedEndDate)) {
+          deadlineStatus = 'Em Atraso';
+        }
+      }
+      
       return {
+        'Data Criação': new Date(order.createdAt).toLocaleDateString('pt-BR'),
         'Nº Ordem': order.orderNumber,
-        'Status': statusMap[order.status] || order.status,
         'Item': order.item?.name || '-',
+        'Referência': order.item?.code || '-',
         'Cor': order.color?.name || '-',
         'Molde': order.mold?.name || '-',
-        'Máquina': order.plcConfig?.name || '-',
+        'Cavidades': order.mold?.activeCavities || order.mold?.cavities || '-',
+        'Tempo Ciclo (s)': order.mold?.cycleTime || '-',
+        'Máquina/CLP': order.plcConfig?.name || '-',
+        'Setor': order.sector?.name || '-',
+        'Status': statusMap[order.status] || order.status,
+        'Prioridade': order.priority === 'URGENT' ? 'Urgente' : order.priority === 'HIGH' ? 'Alta' : order.priority === 'MEDIUM' ? 'Média' : 'Baixa',
+        'Início Planejado': order.plannedStartDate ? new Date(order.plannedStartDate).toLocaleDateString('pt-BR') + ' ' + new Date(order.plannedStartDate).toLocaleTimeString('pt-BR') : '-',
+        'Fim Planejado': order.plannedEndDate ? new Date(order.plannedEndDate).toLocaleDateString('pt-BR') + ' ' + new Date(order.plannedEndDate).toLocaleTimeString('pt-BR') : '-',
+        'Início Real': order.actualStartDate ? new Date(order.actualStartDate).toLocaleDateString('pt-BR') + ' ' + new Date(order.actualStartDate).toLocaleTimeString('pt-BR') : '-',
+        'Fim Real': order.actualEndDate ? new Date(order.actualEndDate).toLocaleDateString('pt-BR') + ' ' + new Date(order.actualEndDate).toLocaleTimeString('pt-BR') : '-',
+        'Tempo Planejado (min)': plannedTime || '-',
+        'Tempo Real (min)': actualTime || '-',
+        'Desvio Tempo (min)': timeDeviation || '-',
+        'Desvio Tempo (%)': timeDeviationPercent,
+        'Status Prazo': deadlineStatus,
         'Qtd Planejada': order.plannedQuantity,
         'Qtd Produzida': order.producedQuantity,
         'Qtd Rejeitada': order.rejectedQuantity,
-        'Progresso (%)': progress,
-        'Prioridade': order.priority,
-        'Data Início Planejada': new Date(order.plannedStartDate).toLocaleDateString('pt-BR'),
-        'Data Fim Planejada': new Date(order.plannedEndDate).toLocaleDateString('pt-BR'),
-        'Data Início Real': order.startDate ? new Date(order.startDate).toLocaleDateString('pt-BR') : '-',
-        'Data Fim Real': order.endDate ? new Date(order.endDate).toLocaleDateString('pt-BR') : '-',
-        'Observações': order.notes || '-',
+        'Qtd Aprovada': quantityGood,
+        'Taxa Conclusão (%)': completionRate,
+        'Taxa Eficiência (%)': efficiencyRate,
+        'Tempo Médio/Peça (min)': avgTimePerPiece,
+        'Custo Material (R$)': materialCost,
+        'Custo Mão-de-Obra (R$)': laborCost,
+        'Custo Refugo (R$)': wasteCost,
+        'Custo Total (R$)': totalCost,
+        'Custo/Peça (R$)': costPerPiece,
+        'Nº Apontamentos': order.productionAppointments?.length || 0,
+        'Nº Paradas': order.downtimes?.length || 0,
+        'Notas': order.notes || '-',
       };
     });
     
