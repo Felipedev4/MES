@@ -17,7 +17,6 @@ import {
   IconButton,
   Switch,
   FormControlLabel,
-  MenuItem,
   Typography,
   Chip,
   alpha,
@@ -35,6 +34,7 @@ import {
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
 import PageHeader from '../components/PageHeader';
+import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 
 interface Company {
@@ -58,15 +58,14 @@ interface Shift {
 export default function Shifts() {
   const theme = useTheme();
   const { enqueueSnackbar } = useSnackbar();
+  const { selectedCompany } = useAuth();
   
   const [shifts, setShifts] = useState<Shift[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(false);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   
   // Form fields
-  const [companyId, setCompanyId] = useState<number | ''>('');
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [startTime, setStartTime] = useState('');
@@ -75,23 +74,19 @@ export default function Shifts() {
   const [active, setActive] = useState(true);
 
   useEffect(() => {
-    loadCompanies();
-    loadShifts();
-  }, []);
-
-  const loadCompanies = async () => {
-    try {
-      const response = await api.get('/companies');
-      setCompanies(response.data);
-    } catch (error) {
-      console.error('Erro ao carregar empresas:', error);
+    if (selectedCompany) {
+      loadShifts();
     }
-  };
+  }, [selectedCompany]);
 
   const loadShifts = async () => {
+    if (!selectedCompany) return;
+    
     try {
       setLoading(true);
-      const response = await api.get('/shifts');
+      const response = await api.get('/shifts', {
+        params: { companyId: selectedCompany.id }
+      });
       setShifts(response.data);
     } catch (error) {
       enqueueSnackbar('Erro ao carregar turnos', { variant: 'error' });
@@ -103,7 +98,6 @@ export default function Shifts() {
   const handleOpenDialog = (shift?: Shift) => {
     if (shift) {
       setEditingShift(shift);
-      setCompanyId(shift.companyId);
       setName(shift.name);
       setCode(shift.code);
       setStartTime(shift.startTime);
@@ -112,7 +106,6 @@ export default function Shifts() {
       setActive(shift.active);
     } else {
       setEditingShift(null);
-      setCompanyId('');
       setName('');
       setCode('');
       setStartTime('');
@@ -129,14 +122,19 @@ export default function Shifts() {
   };
 
   const handleSave = async () => {
-    if (!companyId || !name || !code || !startTime || !endTime) {
+    if (!selectedCompany) {
+      enqueueSnackbar('Nenhuma empresa selecionada', { variant: 'error' });
+      return;
+    }
+
+    if (!name || !code || !startTime || !endTime) {
       enqueueSnackbar('Preencha todos os campos obrigatórios', { variant: 'warning' });
       return;
     }
 
     try {
       const data = {
-        companyId,
+        companyId: selectedCompany.id,
         name,
         code,
         startTime,
@@ -187,21 +185,29 @@ export default function Shifts() {
         iconGradient="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
       />
 
-      <Box sx={{ mb: 3 }}>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpenDialog()}
-          sx={{
-            background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
-            '&:hover': {
-              background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.primary.main} 100%)`,
-            },
-          }}
-        >
-          Novo Turno
-        </Button>
-      </Box>
+      {!selectedCompany ? (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="body1" color="text.secondary">
+            Selecione uma empresa para gerenciar os turnos.
+          </Typography>
+        </Box>
+      ) : (
+        <Box sx={{ mb: 3 }}>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenDialog()}
+            sx={{
+              background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
+              '&:hover': {
+                background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.primary.main} 100%)`,
+              },
+            }}
+          >
+            Novo Turno
+          </Button>
+        </Box>
+      )}
 
       <TableContainer 
         component={Paper}
@@ -218,7 +224,6 @@ export default function Shifts() {
         <Table stickyHeader>
           <TableHead>
             <TableRow>
-              <TableCell>Empresa</TableCell>
               <TableCell>Nome</TableCell>
               <TableCell>Código</TableCell>
               <TableCell>Horário</TableCell>
@@ -230,13 +235,13 @@ export default function Shifts() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
                   <CircularProgress />
                 </TableCell>
               </TableRow>
             ) : shifts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
                   <Typography variant="body2" color="text.secondary">
                     Nenhum turno cadastrado
                   </Typography>
@@ -245,14 +250,6 @@ export default function Shifts() {
             ) : (
               shifts.map((shift) => (
               <TableRow key={shift.id} hover>
-                <TableCell>
-                  <Typography variant="body2" fontWeight={500}>
-                    {shift.company?.name || '-'}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {shift.company?.code}
-                  </Typography>
-                </TableCell>
                 <TableCell>
                   <Box display="flex" alignItems="center" gap={1}>
                     {getShiftIcon(shift.startTime)}
@@ -335,21 +332,26 @@ export default function Shifts() {
         </DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
-            <TextField
-              select
-              label="Empresa"
-              value={companyId}
-              onChange={(e) => setCompanyId(Number(e.target.value))}
-              required
-              fullWidth
-              disabled={!!editingShift}
-            >
-              {companies.map((company) => (
-                <MenuItem key={company.id} value={company.id}>
-                  {company.name} ({company.code})
-                </MenuItem>
-              ))}
-            </TextField>
+            {selectedCompany && (
+              <Box
+                sx={{
+                  p: 2,
+                  background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.08)} 0%, ${alpha(theme.palette.primary.main, 0.03)} 100%)`,
+                  borderRadius: 2,
+                  border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+                }}
+              >
+                <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                  Empresa:
+                </Typography>
+                <Typography variant="body1" fontWeight={600} color="primary.main">
+                  {selectedCompany.name}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {selectedCompany.code}
+                </Typography>
+              </Box>
+            )}
 
             <TextField
               label="Nome do Turno"
