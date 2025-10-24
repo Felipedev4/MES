@@ -14,13 +14,20 @@ export const getProductionReport = async (req: Request, res: Response) => {
   try {
     const { startDate, endDate, companyId } = req.query;
     
-    const whereClause: any = {
-      timestamp: {
-        gte: startDate ? new Date(startDate as string) : undefined,
-        lte: endDate ? new Date(endDate as string) : undefined,
-      },
-    };
+    const whereClause: any = {};
     
+    // Filtro de data
+    if (startDate || endDate) {
+      whereClause.timestamp = {};
+      if (startDate) {
+        whereClause.timestamp.gte = new Date(startDate as string);
+      }
+      if (endDate) {
+        whereClause.timestamp.lte = new Date(endDate as string);
+      }
+    }
+    
+    // Filtro de empresa
     if (companyId) {
       whereClause.productionOrder = {
         item: {
@@ -28,6 +35,8 @@ export const getProductionReport = async (req: Request, res: Response) => {
         },
       };
     }
+    
+    console.log('📊 [Relatório Produção] Filtros aplicados:', JSON.stringify(whereClause, null, 2));
     
     const appointments = await prisma.productionAppointment.findMany({
       where: whereClause,
@@ -52,6 +61,8 @@ export const getProductionReport = async (req: Request, res: Response) => {
         timestamp: 'desc',
       },
     });
+    
+    console.log(`📊 [Relatório Produção] Encontrados ${appointments.length} apontamentos`);
     
     const reportData = appointments.map((appt: any) => {
       const durationMinutes = appt.durationSeconds ? Math.round(appt.durationSeconds / 60) : 0;

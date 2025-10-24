@@ -137,7 +137,17 @@ export default function Reports() {
         },
       });
       setReportData(response.data);
-      enqueueSnackbar('Relatório gerado com sucesso!', { variant: 'success' });
+      
+      if (response.data.length === 0) {
+        enqueueSnackbar('Nenhum registro encontrado no período selecionado. Tente ajustar as datas!', { 
+          variant: 'warning',
+          autoHideDuration: 6000,
+        });
+      } else {
+        enqueueSnackbar(`Relatório gerado com sucesso! ${response.data.length} registro(s) encontrado(s)`, { 
+          variant: 'success' 
+        });
+      }
     } catch (error: any) {
       enqueueSnackbar(error.response?.data?.error || 'Erro ao gerar relatório', { variant: 'error' });
       setReportData([]);
@@ -386,8 +396,33 @@ export default function Reports() {
               <CircularProgress size={60} />
             </Box>
           ) : reportData.length === 0 ? (
-            <Alert severity="info">
-              Nenhum dado encontrado para o período selecionado. Ajuste os filtros e tente novamente.
+            <Alert 
+              severity="warning"
+              sx={{ 
+                fontSize: '1rem',
+                '& .MuiAlert-message': { width: '100%' }
+              }}
+            >
+              <Typography variant="body1" fontWeight={600} gutterBottom>
+                ⚠️ Nenhum registro encontrado
+              </Typography>
+              <Typography variant="body2" paragraph>
+                Não foram encontrados dados para o período selecionado:
+              </Typography>
+              <Box sx={{ pl: 2, mb: 1 }}>
+                <Typography variant="body2">
+                  • <strong>Data Início:</strong> {formatDate(startDate)}
+                </Typography>
+                <Typography variant="body2">
+                  • <strong>Data Fim:</strong> {formatDate(endDate)}
+                </Typography>
+                <Typography variant="body2">
+                  • <strong>Empresa:</strong> {companyId === 'ALL' ? 'Todas' : companies.find(c => c.id.toString() === companyId)?.name || '-'}
+                </Typography>
+              </Box>
+              <Typography variant="body2" sx={{ mt: 2 }}>
+                💡 <strong>Dica:</strong> Tente ampliar o período de datas ou selecionar "Todas" as empresas.
+              </Typography>
             </Alert>
           ) : (
             <TableContainer
