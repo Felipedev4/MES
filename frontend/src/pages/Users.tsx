@@ -53,6 +53,7 @@ import { useSnackbar } from 'notistack';
 import api from '../services/api';
 import PageHeader from '../components/PageHeader';
 import StatsCard from '../components/StatsCard';
+import { useAuth } from '../contexts/AuthContext';
 
 interface User {
   id: number;
@@ -127,6 +128,7 @@ interface Shift {
 export default function Users() {
   const { enqueueSnackbar } = useSnackbar();
   const theme = useTheme();
+  const { selectedCompany } = useAuth();
   
   const [users, setUsers] = useState<User[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -146,8 +148,10 @@ export default function Users() {
 
   useEffect(() => {
     loadUsers();
-    loadShifts();
-  }, []);
+    if (selectedCompany) {
+      loadShifts();
+    }
+  }, [selectedCompany]);
 
   const loadUsers = async () => {
     try {
@@ -162,8 +166,12 @@ export default function Users() {
   };
 
   const loadShifts = async () => {
+    if (!selectedCompany) return;
+    
     try {
-      const response = await api.get('/shifts');
+      const response = await api.get('/shifts', {
+        params: { companyId: selectedCompany.id }
+      });
       setShifts(response.data);
     } catch (error: any) {
       console.error('Erro ao carregar turnos:', error);
@@ -758,7 +766,14 @@ export default function Users() {
                 label="Turno Padrão"
                 value={formData.shiftId}
                 onChange={handleChange('shiftId')}
-                helperText="Turno em que o colaborador normalmente trabalha"
+                helperText={
+                  !selectedCompany
+                    ? 'Selecione uma empresa para visualizar os turnos'
+                    : shifts.length === 0
+                    ? 'Nenhum turno cadastrado para esta empresa'
+                    : 'Turno em que o colaborador normalmente trabalha'
+                }
+                disabled={!selectedCompany || shifts.length === 0}
               >
                 <MenuItem value="">Sem turno definido</MenuItem>
                 {shifts.map((shift) => (
