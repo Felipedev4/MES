@@ -56,19 +56,45 @@ const initialFormData: ItemFormData = {
   code: '',
   name: '',
   description: '',
-  unit: 'UN',
+  unit: 'un', // Conforme ABNT: minúscula
   colors: [],
   active: true};
 
+// Unidades de medida conforme ABNT NBR 5891 e NBR ISO 80000-1
 const UNIT_OPTIONS = [
-  { value: 'UN', label: 'Unidade' },
-  { value: 'KG', label: 'Quilograma' },
-  { value: 'G', label: 'Grama' },
-  { value: 'L', label: 'Litro' },
-  { value: 'ML', label: 'Mililitro' },
-  { value: 'M', label: 'Metro' },
-  { value: 'M²', label: 'Metro Quadrado' },
-  { value: 'M³', label: 'Metro Cúbico' },
+  // Unidades de contagem
+  { value: 'un', label: 'Unidade (un)' },
+  { value: 'pç', label: 'Peça (pç)' },
+  { value: 'cx', label: 'Caixa (cx)' },
+  { value: 'par', label: 'Par (par)' },
+  { value: 'dz', label: 'Dúzia (dz)' },
+  { value: 'jg', label: 'Jogo (jg)' },
+  
+  // Massa (ABNT: símbolos em minúscula, exceto derivados de nomes próprios)
+  { value: 't', label: 'Tonelada (t)' },
+  { value: 'kg', label: 'Quilograma (kg)' },
+  { value: 'g', label: 'Grama (g)' },
+  { value: 'mg', label: 'Miligrama (mg)' },
+  
+  // Comprimento (ABNT: símbolos em minúscula)
+  { value: 'km', label: 'Quilômetro (km)' },
+  { value: 'm', label: 'Metro (m)' },
+  { value: 'cm', label: 'Centímetro (cm)' },
+  { value: 'mm', label: 'Milímetro (mm)' },
+  
+  // Área (ABNT: usar² para quadrado)
+  { value: 'm²', label: 'Metro quadrado (m²)' },
+  { value: 'cm²', label: 'Centímetro quadrado (cm²)' },
+  
+  // Volume (ABNT: usar³ para cúbico, L maiúsculo)
+  { value: 'm³', label: 'Metro cúbico (m³)' },
+  { value: 'L', label: 'Litro (L)' },
+  { value: 'mL', label: 'Mililitro (mL)' },
+  
+  // Tempo (ABNT: símbolos sem ponto)
+  { value: 'h', label: 'Hora (h)' },
+  { value: 'min', label: 'Minuto (min)' },
+  { value: 's', label: 'Segundo (s)' },
 ];
 
 const Items: React.FC = () => {
