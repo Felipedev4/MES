@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -22,6 +22,7 @@ import {
   Chip,
   alpha,
   useTheme,
+  CircularProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -33,7 +34,7 @@ import {
   EventNote as EventNoteIcon,
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
-import PageHeader from '../components/Layout/PageHeader';
+import PageHeader from '../components/PageHeader';
 import api from '../services/api';
 
 interface Company {
@@ -227,7 +228,22 @@ export default function Shifts() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {shifts.map((shift) => (
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                  <CircularProgress />
+                </TableCell>
+              </TableRow>
+            ) : shifts.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Nenhum turno cadastrado
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            ) : (
+              shifts.map((shift) => (
               <TableRow key={shift.id} hover>
                 <TableCell>
                   <Typography variant="body2" fontWeight={500}>
@@ -301,7 +317,8 @@ export default function Shifts() {
                   </IconButton>
                 </TableCell>
               </TableRow>
-            ))}
+              ))
+            )}
           </TableBody>
         </Table>
       </TableContainer>
