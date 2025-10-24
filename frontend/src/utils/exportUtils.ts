@@ -37,7 +37,7 @@ export const exportToExcel = (
 };
 
 /**
- * Exporta dados para PDF
+ * Exporta dados para PDF com ajuste automático inteligente
  */
 export const exportToPDF = (
   title: string,
@@ -48,20 +48,68 @@ export const exportToPDF = (
 ) => {
   // Detectar número de colunas para configurar orientação e tamanho
   const columnCount = headers.length;
-  const isWideReport = columnCount > 10;
   
-  // Configurar orientação baseado no número de colunas
+  // Determinar orientação: landscape para qualquer relatório com mais de 6 colunas
+  const isWideReport = columnCount > 6;
   const orientation = isWideReport ? 'landscape' : 'portrait';
+  
+  // Criar documento
   const doc = new jsPDF({
     orientation: orientation as 'landscape' | 'portrait',
     unit: 'mm',
     format: 'a4',
   });
   
-  // Ajustar tamanhos baseado no número de colunas
-  const titleSize = isWideReport ? 14 : 16;
-  const baseFontSize = columnCount > 20 ? 6 : columnCount > 15 ? 7 : 8;
-  const cellPadding = columnCount > 20 ? 1 : columnCount > 15 ? 1.5 : 2;
+  // Obter dimensões da página
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  
+  // Calcular margens baseado no número de colunas
+  const marginLeft = columnCount > 20 ? 5 : columnCount > 15 ? 6 : columnCount > 10 ? 7 : 10;
+  const marginRight = marginLeft;
+  const availableWidth = pageWidth - marginLeft - marginRight;
+  
+  // Calcular largura média e tamanho de fonte ideal
+  const avgColumnWidth = availableWidth / columnCount;
+  
+  // Determinar tamanho de fonte baseado na largura disponível por coluna
+  let fontSize: number;
+  let cellPadding: number;
+  let minCellHeight: number;
+  
+  if (avgColumnWidth < 8) {
+    // Muitas colunas (>35 em landscape)
+    fontSize = 4.5;
+    cellPadding = 0.5;
+    minCellHeight = 3.5;
+  } else if (avgColumnWidth < 10) {
+    // ~25-35 colunas
+    fontSize = 5;
+    cellPadding = 0.7;
+    minCellHeight = 4;
+  } else if (avgColumnWidth < 12) {
+    // ~20-25 colunas
+    fontSize = 5.5;
+    cellPadding = 0.8;
+    minCellHeight = 4.5;
+  } else if (avgColumnWidth < 15) {
+    // ~15-20 colunas
+    fontSize = 6;
+    cellPadding = 1;
+    minCellHeight = 5;
+  } else if (avgColumnWidth < 20) {
+    // ~10-15 colunas
+    fontSize = 7;
+    cellPadding = 1.2;
+    minCellHeight = 5.5;
+  } else {
+    // Poucas colunas (<10)
+    fontSize = 8;
+    cellPadding = 1.5;
+    minCellHeight = 6;
+  }
+  
+  const titleSize = isWideReport ? 11 : 16;
   
   // Título
   doc.setFontSize(titleSize);
@@ -100,14 +148,17 @@ export const exportToPDF = (
     head: [headers],
     body: data,
     startY: yPosition,
+    theme: 'grid',
     styles: {
-      fontSize: baseFontSize,
+      fontSize: fontSize,
       cellPadding: cellPadding,
       overflow: 'linebreak',
-      cellWidth: 'wrap',
-      minCellHeight: 5,
+      cellWidth: 'auto',
+      minCellHeight: minCellHeight,
       halign: 'left',
       valign: 'middle',
+      lineColor: [200, 200, 200],
+      lineWidth: 0.1,
     },
     headStyles: {
       fillColor: [41, 128, 185],
@@ -115,27 +166,60 @@ export const exportToPDF = (
       fontStyle: 'bold',
       halign: 'center',
       valign: 'middle',
-      minCellHeight: 8,
+      minCellHeight: minCellHeight + 1,
+      fontSize: Math.min(fontSize + 0.5, 9),
     },
     alternateRowStyles: {
-      fillColor: [245, 245, 245],
+      fillColor: [248, 248, 248],
     },
-    margin: { left: 10, right: 10 },
+    margin: { left: marginLeft, right: marginRight },
     tableWidth: 'auto',
     columnStyles: {},
+    horizontalPageBreak: true,
+    horizontalPageBreakRepeat: 0,
   };
   
-  // Para relatórios muito largos, ajustar largura das colunas
-  if (isWideReport) {
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margins = 20; // 10mm de cada lado
-    const availableWidth = pageWidth - margins;
-    const avgColumnWidth = availableWidth / columnCount;
+  // Calcular largura ideal para cada coluna
+  const columnWidths: number[] = [];
+  headers.forEach((header, index) => {
+    // Calcular comprimento máximo de texto nesta coluna
+    let maxLength = header.length;
     
-    // Aplicar largura mínima para cada coluna
-    headers.forEach((_, index) => {
+    data.forEach(row => {
+      const cellValue = String(row[index] || '');
+      if (cellValue.length > maxLength) {
+        maxLength = cellValue.length;
+      }
+    });
+    
+    // Estimar largura baseada no comprimento do texto e fonte
+    // Fórmula aproximada: caracteres * fontSize * 0.6
+    let estimatedWidth = maxLength * fontSize * 0.6;
+    
+    // Aplicar limites
+    const minWidth = fontSize * 3; // Mínimo 3x o tamanho da fonte
+    const maxWidth = availableWidth / 2; // Máximo metade da página
+    
+    estimatedWidth = Math.max(minWidth, Math.min(estimatedWidth, maxWidth));
+    columnWidths.push(estimatedWidth);
+  });
+  
+  // Calcular total de largura estimada
+  const totalEstimatedWidth = columnWidths.reduce((sum, width) => sum + width, 0);
+  
+  // Se exceder a largura disponível, ajustar proporcionalmente
+  if (totalEstimatedWidth > availableWidth) {
+    const scaleFactor = availableWidth / totalEstimatedWidth;
+    columnWidths.forEach((width, index) => {
       tableConfig.columnStyles[index] = {
-        cellWidth: Math.max(avgColumnWidth, 15), // Mínimo de 15mm
+        cellWidth: width * scaleFactor,
+      };
+    });
+  } else {
+    // Se couber, usar as larguras calculadas
+    columnWidths.forEach((width, index) => {
+      tableConfig.columnStyles[index] = {
+        cellWidth: width,
       };
     });
   }
