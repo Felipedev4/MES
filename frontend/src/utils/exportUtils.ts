@@ -229,8 +229,6 @@ export const exportToPDF = (
   
   // Rodapé com número de páginas
   const pageCount = (doc as any).internal.getNumberOfPages();
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
   
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
