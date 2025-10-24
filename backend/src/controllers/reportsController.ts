@@ -103,6 +103,23 @@ export const getProductionReport = async (req: Request, res: Response) => {
         ? `${appt.user.shift.name} (${appt.user.shift.code})`
         : '-';
       
+      // Custos do item
+      const itemMaterialCost = appt.productionOrder?.item?.materialCost 
+        ? parseFloat(appt.productionOrder.item.materialCost.toString()) 
+        : 0;
+      const itemLaborCost = appt.productionOrder?.item?.laborCost 
+        ? parseFloat(appt.productionOrder.item.laborCost.toString()) 
+        : 0;
+      const itemScrapCost = appt.productionOrder?.item?.scrapCost 
+        ? parseFloat(appt.productionOrder.item.scrapCost.toString()) 
+        : 0;
+      
+      const materialCost = (appt.quantity * itemMaterialCost).toFixed(2);
+      const laborCost = (appt.quantity * itemLaborCost).toFixed(2);
+      const scrapCost = (appt.rejectedQuantity * itemScrapCost).toFixed(2);
+      const totalCost = (parseFloat(materialCost) + parseFloat(laborCost) + parseFloat(scrapCost)).toFixed(2);
+      const costPerPiece = appt.quantity > 0 ? (parseFloat(totalCost) / appt.quantity).toFixed(2) : '0.00';
+      
       return {
         'Data Apontamento': new Date(appt.timestamp).toLocaleDateString('pt-BR'),
         'Hora Apontamento': new Date(appt.timestamp).toLocaleTimeString('pt-BR'),
@@ -129,6 +146,11 @@ export const getProductionReport = async (req: Request, res: Response) => {
         'Duração (min)': durationMinutes || '-',
         'Taxa Produção (pçs/h)': productionRate,
         'Eficiência Cavidades (%)': cavities > 0 ? ((appt.quantity / (cavities * Math.max(1, durationMinutes))) * 100).toFixed(2) : '0.00',
+        'Custo Material (R$)': materialCost,
+        'Custo Mão-de-Obra (R$)': laborCost,
+        'Custo Refugo (R$)': scrapCost,
+        'Custo Total (R$)': totalCost,
+        'Custo/Peça (R$)': costPerPiece,
         'Observações': appt.notes || '-',
       };
     });
@@ -206,8 +228,11 @@ export const getDefectsReport = async (req: Request, res: Response) => {
       const totalProduced = defect.productionOrder?.producedQuantity || 0;
       const defectRate = totalProduced > 0 ? ((defect.quantity / totalProduced) * 100).toFixed(2) : '0.00';
       
-      // Custo estimado (valor simbólico - ajustar conforme necessário)
-      const estimatedCost = (defect.quantity * 0.50).toFixed(2); // R$ 0,50 por peça defeituosa
+      // Custo estimado - pegar do cadastro do item
+      const itemScrapCost = defect.productionOrder?.item?.scrapCost 
+        ? parseFloat(defect.productionOrder.item.scrapCost.toString()) 
+        : 0;
+      const estimatedCost = (defect.quantity * itemScrapCost).toFixed(2);
       
       return {
         'Data': new Date(defect.createdAt).toLocaleDateString('pt-BR'),
@@ -488,6 +513,17 @@ export const getEfficiencyReport = async (req: Request, res: Response) => {
         .map((user: any) => user.shift ? `${user.name}: ${user.shift.name} (${user.shift.code})` : `${user.name}: Sem turno`)
         .join('; ') || '-';
       
+      // Custos do item
+      const itemMaterialCost = order.item?.materialCost ? parseFloat(order.item.materialCost.toString()) : 0;
+      const itemLaborCost = order.item?.laborCost ? parseFloat(order.item.laborCost.toString()) : 0;
+      const itemScrapCost = order.item?.scrapCost ? parseFloat(order.item.scrapCost.toString()) : 0;
+      
+      const materialCost = (order.producedQuantity * itemMaterialCost).toFixed(2);
+      const laborCost = (order.producedQuantity * itemLaborCost).toFixed(2);
+      const scrapCost = (order.rejectedQuantity * itemScrapCost).toFixed(2);
+      const totalCost = (parseFloat(materialCost) + parseFloat(laborCost) + parseFloat(scrapCost)).toFixed(2);
+      const costPerPiece = order.producedQuantity > 0 ? (parseFloat(totalCost) / order.producedQuantity).toFixed(2) : '0.00';
+      
       return {
         'Data': order.plannedStartDate ? new Date(order.plannedStartDate).toLocaleDateString('pt-BR') : '-',
         'Ordem': order.orderNumber,
@@ -516,6 +552,11 @@ export const getEfficiencyReport = async (req: Request, res: Response) => {
         'Qualidade (%)': quality,
         'OEE (%)': oee,
         'Classificação OEE': parseFloat(oee) >= 85 ? 'Classe Mundial' : parseFloat(oee) >= 60 ? 'Boa' : parseFloat(oee) >= 40 ? 'Regular' : 'Ruim',
+        'Custo Material (R$)': materialCost,
+        'Custo Mão-de-Obra (R$)': laborCost,
+        'Custo Refugo (R$)': scrapCost,
+        'Custo Total (R$)': totalCost,
+        'Custo/Peça (R$)': costPerPiece,
         'Operadores Envolvidos': operatorNames,
         'Turnos dos Operadores': operatorShifts,
       };
@@ -605,13 +646,14 @@ export const getOrdersReport = async (req: Request, res: Response) => {
         ? ((quantityGood / order.plannedQuantity) * 100).toFixed(2) 
         : '0.00';
       
-      // Cálculos de custo (valores estimados - ajustar conforme necessário)
-      const materialCostPerPiece = 0.80; // R$ 0,80 por peça
-      const laborCostPerHour = 50; // R$ 50/hora
+      // Cálculos de custo - pegar do cadastro do item
+      const itemMaterialCost = order.item?.materialCost ? parseFloat(order.item.materialCost.toString()) : 0;
+      const itemLaborCost = order.item?.laborCost ? parseFloat(order.item.laborCost.toString()) : 0;
+      const itemScrapCost = order.item?.scrapCost ? parseFloat(order.item.scrapCost.toString()) : 0;
       
-      const materialCost = (order.producedQuantity * materialCostPerPiece).toFixed(2);
-      const laborCost = ((actualTime / 60) * laborCostPerHour).toFixed(2);
-      const wasteCost = (order.rejectedQuantity * materialCostPerPiece).toFixed(2);
+      const materialCost = (order.producedQuantity * itemMaterialCost).toFixed(2);
+      const laborCost = (order.producedQuantity * itemLaborCost).toFixed(2);
+      const wasteCost = (order.rejectedQuantity * itemScrapCost).toFixed(2);
       const totalCost = (parseFloat(materialCost) + parseFloat(laborCost) + parseFloat(wasteCost)).toFixed(2);
       
       const costPerPiece = order.producedQuantity > 0 
