@@ -161,6 +161,9 @@ export default function Sectors() {
         companyId: parseInt(formData.companyId),
         code: formData.code,
         name: formData.name,
+        description: formData.description || null,
+        email: formData.email || null,
+        sendEmailOnAlert: formData.sendEmailOnAlert,
         active: formData.active};
 
       if (editingId) {

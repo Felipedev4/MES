@@ -41,6 +41,10 @@ import {
   PauseCircle as ParadaIcon,
   Assessment as ResumoIcon,
   Speed as SpeedIcon,
+  PlayArrow as PlayIcon,
+  CheckCircle as CheckIcon,
+  InfoOutlined as InfoIcon,
+  Event as EventIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
@@ -690,7 +694,7 @@ const ProductionDashboard: React.FC = () => {
         iconGradient="linear-gradient(135deg, #00bcd4 0%, #0097a7 100%)"
         breadcrumbs={[
           { label: 'Injetoras', path: '/injectors' },
-          { label: 'Painel Ordem', path: -1 as any },
+          { label: 'Painel Ordem', path: `/injectors/${orderData.plcConfigId}/orders` },
           { label: 'Dashboard Produção' },
         ]}
       />
@@ -1334,44 +1338,122 @@ const ProductionDashboard: React.FC = () => {
       <Dialog
         open={resumeProductionDialogOpen}
         onClose={() => !resumingProduction && setResumeProductionDialogOpen(false)}
-        maxWidth="xs"
+        maxWidth="sm"
         fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            overflow: 'hidden',
+          },
+        }}
       >
-        <DialogTitle sx={{ bgcolor: 'success.main', color: 'white', textAlign: 'center' }}>
-          <Box display="flex" flexDirection="column" alignItems="center" gap={1}>
+        <DialogTitle 
+          sx={{ 
+            background: 'linear-gradient(135deg, #2e7d32 0%, #66bb6a 100%)',
+            color: 'white',
+            py: 3,
+            position: 'relative',
+            overflow: 'hidden',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'radial-gradient(circle at 20% 50%, rgba(255,255,255,0.1) 0%, transparent 50%)',
+            },
+          }}
+        >
+          <Box 
+            display="flex" 
+            flexDirection="column" 
+            alignItems="center" 
+            gap={2}
+            position="relative"
+            zIndex={1}
+          >
             <Box
               sx={{
-                width: 64,
-                height: 64,
+                width: 80,
+                height: 80,
                 borderRadius: '50%',
-                bgcolor: 'rgba(255, 255, 255, 0.2)',
+                background: 'rgba(255, 255, 255, 0.25)',
+                backdropFilter: 'blur(10px)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                border: '2px solid rgba(255, 255, 255, 0.3)',
               }}
             >
-              <Typography variant="h2">▶️</Typography>
+              <PlayIcon sx={{ fontSize: 48, color: 'white' }} />
             </Box>
-            <Typography variant="h6" fontWeight="bold">
-              Retomada de Produção
-            </Typography>
+            <Box textAlign="center">
+              <Typography variant="h5" fontWeight={700} gutterBottom>
+                Retomada de Produção
+              </Typography>
+              <Typography variant="body2" sx={{ opacity: 0.95, fontWeight: 500 }}>
+                Confirmar retorno das atividades
+              </Typography>
+            </Box>
           </Box>
         </DialogTitle>
         
-        <DialogContent sx={{ textAlign: 'center', py: 3 }}>
-          <Typography variant="body1" gutterBottom>
-            Confirma retomada da produção
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            A parada atual será finalizada e a ordem retornará ao status ATIVO
-          </Typography>
+        <DialogContent sx={{ py: 4, px: 3 }}>
+          <Box sx={{ textAlign: 'center', mb: 3 }}>
+            <Typography variant="h6" fontWeight={600} gutterBottom color="text.primary">
+              Deseja retomar a produção?
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Esta ação finalizará a parada atual e retomará as operações
+            </Typography>
+          </Box>
+
+          <Box
+            sx={{
+              p: 2.5,
+              borderRadius: 2,
+              bgcolor: 'success.50',
+              border: '1px solid',
+              borderColor: 'success.200',
+              background: 'linear-gradient(135deg, rgba(46, 125, 50, 0.05) 0%, rgba(102, 187, 106, 0.08) 100%)',
+            }}
+          >
+            <Box display="flex" alignItems="center" gap={1} mb={1.5}>
+              <CheckIcon color="success" fontSize="small" />
+              <Typography variant="subtitle2" fontWeight={700} color="success.dark">
+                Ações que serão executadas:
+              </Typography>
+            </Box>
+            <Box component="ul" sx={{ m: 0, pl: 3.5, '& li': { mb: 0.5 } }}>
+              <Typography component="li" variant="body2" color="text.secondary">
+                A parada atual será <strong>finalizada automaticamente</strong>
+              </Typography>
+              <Typography component="li" variant="body2" color="text.secondary">
+                A ordem retornará ao status <strong>ATIVO</strong>
+              </Typography>
+              <Typography component="li" variant="body2" color="text.secondary">
+                A produção será <strong>retomada imediatamente</strong>
+              </Typography>
+            </Box>
+          </Box>
         </DialogContent>
 
-        <DialogActions sx={{ p: 2, justifyContent: 'center', gap: 1 }}>
+        <Divider />
+
+        <DialogActions sx={{ p: 2.5, gap: 1.5, justifyContent: 'space-between' }}>
           <Button
             onClick={() => setResumeProductionDialogOpen(false)}
             variant="outlined"
+            color="inherit"
             disabled={resumingProduction}
+            sx={{ 
+              minWidth: 120,
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+            }}
           >
             Cancelar
           </Button>
@@ -1380,7 +1462,17 @@ const ProductionDashboard: React.FC = () => {
             variant="contained"
             color="success"
             disabled={resumingProduction}
-            sx={{ minWidth: 140 }}
+            startIcon={resumingProduction ? <CircularProgress size={20} color="inherit" /> : <PlayIcon />}
+            sx={{ 
+              minWidth: 180,
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+              boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)',
+              '&:hover': {
+                boxShadow: '0 6px 16px rgba(46, 125, 50, 0.4)',
+              },
+            }}
           >
             {resumingProduction ? 'Retomando...' : 'Retomar Produção'}
           </Button>
@@ -1396,45 +1488,98 @@ const ProductionDashboard: React.FC = () => {
         fullScreen={isMobile}
         PaperProps={{
           sx: {
+            borderRadius: isMobile ? 0 : 3,
+            overflow: 'hidden',
             m: isMobile ? 0 : 2,
             maxHeight: isMobile ? '100%' : 'calc(100% - 64px)',
           }
         }}
       >
-        <DialogTitle sx={{ bgcolor: 'error.main', color: 'white', p: isMobile ? 1.5 : 2 }}>
-          <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Typography variant={isMobile ? "subtitle1" : "h6"} fontWeight="bold">
-              Parada de Produção
-            </Typography>
-            <IconButton
-              edge="end"
-              onClick={() => !registeringStop && setStopProductionDialogOpen(false)}
-              aria-label="close"
-              size={isMobile ? "small" : "medium"}
-              disabled={registeringStop}
-              sx={{
-                color: 'white',
-                '&:hover': { bgcolor: 'error.dark' }
-              }}
-            >
-              <CloseIcon />
-            </IconButton>
+        <DialogTitle 
+          sx={{ 
+            background: 'linear-gradient(135deg, #c62828 0%, #ef5350 100%)',
+            color: 'white',
+            py: 3,
+            position: 'relative',
+            overflow: 'hidden',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'radial-gradient(circle at 20% 50%, rgba(255,255,255,0.1) 0%, transparent 50%)',
+            },
+          }}
+        >
+          <Box position="relative" zIndex={1}>
+            <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+              <Box display="flex" flexDirection="column" alignItems="flex-start" gap={2} flex={1}>
+                <Box
+                  sx={{
+                    width: 72,
+                    height: 72,
+                    borderRadius: '50%',
+                    background: 'rgba(255, 255, 255, 0.25)',
+                    backdropFilter: 'blur(10px)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                    border: '2px solid rgba(255, 255, 255, 0.3)',
+                  }}
+                >
+                  <ParadaIcon sx={{ fontSize: 42, color: 'white' }} />
+                </Box>
+                <Box>
+                  <Typography variant="h5" fontWeight={700} gutterBottom>
+                    Parada de Produção
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.95, fontWeight: 500 }}>
+                    Registrar interrupção das atividades
+                  </Typography>
+                </Box>
+              </Box>
+              <IconButton
+                onClick={() => !registeringStop && setStopProductionDialogOpen(false)}
+                disabled={registeringStop}
+                sx={{
+                  color: 'white',
+                  bgcolor: 'rgba(255, 255, 255, 0.15)',
+                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.25)' },
+                  ml: 2,
+                }}
+              >
+                <CloseIcon />
+              </IconButton>
+            </Box>
           </Box>
         </DialogTitle>
         
-        <DialogContent dividers sx={{ p: isMobile ? 2 : 3 }}>
-          <Box display="flex" flexDirection="column" gap={isMobile ? 2 : 3}>
-            {/* Campo Ordem (apenas visualização) */}
-            <TextField
-              label="Ordem"
-              value={orderData?.orderNumber || ''}
-              fullWidth
-              disabled
-              InputProps={{
-                readOnly: true,
+        <DialogContent sx={{ p: isMobile ? 2 : 3, pt: 3 }}>
+          <Box display="flex" flexDirection="column" gap={3}>
+            {/* Info Box */}
+            <Box
+              sx={{
+                p: 2,
+                borderRadius: 2,
+                bgcolor: 'info.50',
+                border: '1px solid',
+                borderColor: 'info.200',
+                background: 'linear-gradient(135deg, rgba(2, 136, 209, 0.05) 0%, rgba(3, 169, 244, 0.08) 100%)',
               }}
-              sx={{ backgroundColor: '#f5f5f5' }}
-            />
+            >
+              <Box display="flex" alignItems="center" gap={1} mb={0.5}>
+                <InfoIcon color="info" fontSize="small" />
+                <Typography variant="subtitle2" fontWeight={700} color="info.dark">
+                  Informação da Ordem
+                </Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary">
+                <strong>Ordem:</strong> {orderData?.orderNumber || '—'}
+              </Typography>
+            </Box>
 
             {/* Tipo de Atividade */}
             <TextField
@@ -1445,26 +1590,39 @@ const ProductionDashboard: React.FC = () => {
               fullWidth
               required
               disabled={registeringStop}
+              helperText="Selecione o tipo de parada"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                },
+              }}
             >
               {activityTypes.map((activity) => (
                 <MenuItem key={activity.id} value={activity.id}>
-                  <Box display="flex" alignItems="center" gap={1}>
+                  <Box display="flex" alignItems="center" gap={1.5}>
                     {activity.color && (
                       <Box
                         sx={{
-                          width: 16,
-                          height: 16,
+                          width: 20,
+                          height: 20,
                           borderRadius: '50%',
                           bgcolor: activity.color,
+                          border: '2px solid',
+                          borderColor: 'divider',
+                          flexShrink: 0,
                         }}
                       />
                     )}
-                    <Typography>
-                      {activity.name}
-                      {activity.type === 'PRODUCTIVE' && ' (Produtiva)'}
-                      {activity.type === 'UNPRODUCTIVE' && ' (Improdutiva)'}
-                      {activity.type === 'PLANNED' && ' (Planejada)'}
-                    </Typography>
+                    <Box>
+                      <Typography variant="body2" fontWeight={600}>
+                        {activity.name}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {activity.type === 'PRODUCTIVE' && 'Produtiva'}
+                        {activity.type === 'UNPRODUCTIVE' && 'Improdutiva'}
+                        {activity.type === 'PLANNED' && 'Planejada'}
+                      </Typography>
+                    </Box>
                   </Box>
                 </MenuItem>
               ))}
@@ -1479,43 +1637,72 @@ const ProductionDashboard: React.FC = () => {
               fullWidth
               required
               disabled={registeringStop}
+              helperText="Data e hora do início da parada"
               InputLabelProps={{
                 shrink: true,
+              }}
+              InputProps={{
+                startAdornment: (
+                  <EventIcon sx={{ mr: 1, color: 'action.active' }} />
+                ),
+              }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                },
               }}
             />
           </Box>
         </DialogContent>
 
+        <Divider />
+
         <DialogActions 
           sx={{ 
-            p: isMobile ? 1.5 : 2, 
-            gap: 1,
-            flexDirection: isMobile ? 'column' : 'row',
+            p: 2.5,
+            gap: 1.5,
+            justifyContent: 'space-between',
+            flexDirection: isMobile ? 'column-reverse' : 'row',
             '& > button': {
               width: isMobile ? '100%' : 'auto',
             }
           }}
         >
           <Button
-            onClick={handleRegisterStop}
-            variant="contained"
-            color="error"
-            disabled={registeringStop}
-            fullWidth={isMobile}
-            sx={{ minWidth: isMobile ? 'auto' : 140, order: isMobile ? 1 : 2 }}
-          >
-            {registeringStop ? 'Gravando...' : 'Gravar Registro'}
-          </Button>
-          
-          <Button
             onClick={() => setStopProductionDialogOpen(false)}
             variant="outlined"
             color="inherit"
             disabled={registeringStop}
             fullWidth={isMobile}
-            sx={{ order: isMobile ? 2 : 1 }}
+            sx={{ 
+              minWidth: 120,
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+            }}
           >
             Cancelar
+          </Button>
+          
+          <Button
+            onClick={handleRegisterStop}
+            variant="contained"
+            color="error"
+            disabled={registeringStop}
+            fullWidth={isMobile}
+            startIcon={registeringStop ? <CircularProgress size={20} color="inherit" /> : <ParadaIcon />}
+            sx={{ 
+              minWidth: 180,
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+              boxShadow: '0 4px 12px rgba(198, 40, 40, 0.3)',
+              '&:hover': {
+                boxShadow: '0 6px 16px rgba(198, 40, 40, 0.4)',
+              },
+            }}
+          >
+            {registeringStop ? 'Gravando...' : 'Gravar Registro'}
           </Button>
         </DialogActions>
       </Dialog>

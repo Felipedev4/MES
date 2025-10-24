@@ -1,386 +1,268 @@
-# Melhorias de Layout - Injetoras e Painel Ordem
+# 🎨 LAYOUT PROFISSIONAL - PÁGINA DE INJETORAS
 
-## 📋 Problemas Corrigidos
+## ✨ Transformação Completa do Design
 
-### ❌ Problemas Identificados
-1. **IP não aparecia** na página de Injetoras
-2. **Cards desorganizados** no Painel Ordem
-3. **Falta de hierarquia visual** nas informações
+A página de Injetoras recebeu uma reformulação completa para um layout moderno, profissional e informativo.
 
 ---
 
-## ✅ Melhorias Aplicadas
+## 🚀 PRINCIPAIS MELHORIAS
 
-### 1. Página Injetoras
+### 1. **Cards com Gradientes Únicos** 🌈
+- Cada injetora recebe um gradiente diferente de uma paleta de 6 cores
+- Barra superior colorida em cada card (5px)
+- Título do card com efeito de gradiente no texto
+- Efeito de elevação ao passar o mouse (translateY -8px)
 
-#### Antes
-- IP não visível ou mal posicionado
-- CardContent ocultando informações
-- Layout confuso
+**Paleta de Gradientes:**
+- 🟣 Roxo: `#667eea → #764ba2`
+- 🌸 Rosa: `#f093fb → #f5576c`
+- 🔵 Azul Ciano: `#4facfe → #00f2fe`
+- 🟢 Verde Água: `#43e97b → #38f9d7`
+- 🎨 Coral-Amarelo: `#fa709a → #fee140`
+- 🌊 Oceano: `#30cfd0 → #330867`
 
-#### Depois
-```typescript
-// Estrutura reorganizada sem CardContent
-<Box display="flex" flexDirection="column" alignItems="center">
-  {/* Ícone grande e destacado */}
-  <Box sx={{ width: 80, height: 80, borderRadius: '50%', mb: 3 }}>
-    <PlcIcon />
-  </Box>
+### 2. **Badge de Status Online/Offline** 📡
+- Chip com ícone pulsante para status online
+- Cores semânticas:
+  - ✅ **Verde**: Online (com animação de pulso)
+  - ⚫ **Cinza**: Offline
+- Posicionado no topo esquerdo do card
 
-  {/* Nome em destaque */}
-  <Typography variant="h6" fontWeight="bold">
-    {plc.name}
-  </Typography>
+### 3. **Ícone com Gradiente** 🎯
+- Ícone de configuração (PlcIcon) em box 48x48px
+- Background com gradiente único por card
+- Border radius: 12px (cantos arredondados)
+- Sombra com alpha do tema
 
-  {/* Descrição */}
-  <Typography variant="body2" color="text.secondary">
-    {plc.description}
-  </Typography>
+### 4. **Informações Técnicas Organizadas** 📊
 
-  {/* IP com destaque visual */}
-  <Box mt={2} pt={2} borderTop="1px solid" width="100%">
-    <Typography variant="caption" color="text.secondary">
-      Endereço IP:
-    </Typography>
-    <Typography variant="body1" fontWeight="bold" color="primary">
-      {plc.ipAddress}  {/* ✅ AGORA VISÍVEL */}
-    </Typography>
-  </Box>
-</Box>
-```
+#### **Endereço IP + Porta**
+- Box azul suave com ícone de roteador
+- Fonte monospace para melhor legibilidade
+- Formato: `192.168.1.100:502`
+- Background: `alpha(primary, 0.05)`
+- Border: `alpha(primary, 0.1)`
 
-#### Melhorias
-- ✅ IP agora aparece com destaque
-- ✅ Fonte maior e cor primária para o IP
-- ✅ Separação visual clara com borda superior
-- ✅ Removido CardContent que causava problemas
-- ✅ Margem aumentada no ícone (mb: 3)
-- ✅ Layout mais limpo e organizado
+#### **Porta (Speed Icon)** ⚡
+- Box info em cor azul info
+- Ícone de velocímetro
+- Valor em destaque
+- Alinhado à esquerda
 
----
+#### **Slave ID (Memory Icon)** 🧠
+- Box warning em cor laranja
+- Ícone de memória/chip
+- Valor em destaque
+- Alinhado à direita
 
-### 2. Painel Ordem
+### 5. **Call-to-Action Visual** 🎯
+- Box com borda tracejada (dashed)
+- Background semi-transparente
+- Hover effect: aumenta opacidade e destaca borda
+- Texto: "⚡ Clique para acessar as ordens"
+- Incentiva a interação
 
-#### Antes
-- Informações amontoadas
-- Falta de hierarquia visual
-- Layout pouco agradável
-- Difícil leitura rápida
-
-#### Depois
-```typescript
-<Card>
-  {/* Header com status */}
-  <Box bgcolor="#f5f5f5" p={1.5}>
-    {getUrgencyChip(order)}
-    {getActivityChip(order)}
-  </Box>
-
-  <CardContent p={3}>
-    {/* Seção 1: Ordem e Quantidade (destaque) */}
-    <Grid container spacing={2} mb={2}>
-      <Grid item xs={6}>
-        <Typography variant="h5" fontWeight="bold" color="primary">
-          {order.orderNumber}  {/* ✅ MAIOR E DESTACADO */}
-        </Typography>
-      </Grid>
-      <Grid item xs={6} textAlign="right">
-        <Typography variant="h5" fontWeight="bold">
-          {order.plannedQuantity}  {/* ✅ ALINHADO À DIREITA */}
-        </Typography>
-      </Grid>
-    </Grid>
-
-    {/* Divisor visual */}
-    <Box borderTop="2px solid" borderColor="divider" pt={2} mb={2} />
-
-    {/* Seção 2: Detalhes em grid organizado */}
-    <Grid container spacing={2}>
-      {/* Todos os campos com label + valor consistente */}
-      <Grid item xs={6}>
-        <Typography variant="caption" display="block">
-          Data Inicial:
-        </Typography>
-        <Typography variant="body1" fontWeight="medium">
-          {formatDate(order.plannedStartDate)}
-        </Typography>
-      </Grid>
-      {/* ... outros campos ... */}
-    </Grid>
-
-    {/* Rodapé com produto em destaque */}
-    <Box bgcolor="#fafafa" mx={-3} px={3} py={1.5}>
-      <Typography variant="body2" fontWeight="bold">
-        {order.item?.name}  {/* ✅ PRODUTO EM DESTAQUE */}
-      </Typography>
-    </Box>
-  </CardContent>
-</Card>
-```
-
-#### Melhorias
-- ✅ **Header com chips** em área cinza destacada
-- ✅ **Ordem e Quantidade** em H5 (maior e em destaque)
-- ✅ **Ordem alinhada à esquerda**, Quantidade à direita
-- ✅ **Divisor visual** (linha grossa) separando seções
-- ✅ **Grid organizado** 2x2 para datas e detalhes
-- ✅ **Labels consistentes** (caption + body1)
-- ✅ **Apontamento em verde** para destaque
-- ✅ **Rodapé cinza** com nome do produto em bold
-- ✅ **Espaçamentos otimizados** (p: 3, mb: 2)
-- ✅ **Overflow: hidden** no card para cantos arredondados
-
----
-
-## 🎨 Hierarquia Visual
-
-### Injetoras
-```
-Prioridade 1: Ícone (80x80, gradiente azul)
-Prioridade 2: Nome do CLP (H6, bold)
-Prioridade 3: Descrição (body2, secondary)
-Prioridade 4: IP (body1, bold, primary) ← AGORA VISÍVEL
-```
-
-### Painel Ordem
-```
-Prioridade 1: Status Chips (topo, fundo cinza)
-Prioridade 2: Ordem + Quantidade (H5, bold)
-Prioridade 3: Dados principais (body1, medium)
-Prioridade 4: Nome do produto (rodapé, fundo cinza claro)
-```
-
----
-
-## 📐 Estrutura de Layout
-
-### Injetoras - Card Structure
-```
-┌─────────────────────────┐
-│      [Ícone 80x80]      │  ← Círculo azul
-│                         │
-│   CLP Principal         │  ← H6, bold
-│   DVP-12SE              │  ← body2, secondary
-│   ─────────────────     │  ← Linha divisória
-│   Endereço IP:          │  ← caption
-│   10.10.0.15            │  ← body1, bold, azul
-└─────────────────────────┘
-```
-
-### Painel Ordem - Card Structure
-```
-┌─────────────────────────────────────┐
-│ [URGENTE] [Em Atividade]            │  ← Fundo cinza
-├─────────────────────────────────────┤
-│ Ordem:              Quantidade:     │
-│ OP-2025-001         1.000          │  ← H5, bold
-│                                     │
-│ ═════════════════════════════════  │  ← Linha grossa
-│                                     │
-│ Data Inicial:    Apontamento:      │
-│ 21/10/2025       0                 │
-│                                     │
-│ Data Final:      Item:              │
-│ 28/10/2025       Tampa Plástica    │
-│                                     │
-├─────────────────────────────────────┤
-│ Tampa Plástica 100mm                │  ← Fundo cinza claro
-└─────────────────────────────────────┘
-```
-
----
-
-## 🎯 Cores e Estilos
-
-### Injetoras
+### 6. **Hover Effects Aprimorados** ✨
 ```css
-Ícone: 
-  - background: linear-gradient(135deg, #2196f3 0%, #0d47a1 100%)
-  - size: 80x80px
-  - margin-bottom: 24px
-
-IP:
-  - color: primary (#1976d2)
-  - fontWeight: bold
-  - fontSize: body1
+'&:hover': {
+  transform: 'translateY(-8px)',
+  boxShadow: '0 12px 24px rgba(primary, 0.15)',
+}
 ```
+- Elevação suave de 8px
+- Sombra expansiva
+- Transição cubic-bezier para movimento natural
 
-### Painel Ordem
+### 7. **Animações CSS** 🎬
 ```css
-Header (Chips):
-  - bgcolor: #f5f5f5
-  - padding: 12px
-  - gap: 8px
-
-Ordem/Quantidade:
-  - variant: h5
-  - fontWeight: bold
-  - Ordem: color primary
-  - Quantidade: alinhado à direita
-
-Divisor:
-  - borderTop: 2px solid
-  - borderColor: divider
-
-Apontamento:
-  - color: success.main (verde)
-  - fontWeight: medium
-
-Rodapé:
-  - bgcolor: #fafafa
-  - margin-x: -24px (full width)
-  - padding: 12px 24px
-  - fontWeight: bold
+'@keyframes pulse': {
+  '0%, 100%': { opacity: 1 },
+  '50%': { opacity: 0.5 },
+}
 ```
+- Badge de status online pulsa continuamente
+- Indica visualmente conexão ativa
+
+### 8. **Estado Vazio Melhorado** 📭
+- Ícone grande em círculo com gradiente suave
+- Título em h5 bold
+- Descrição clara e orientativa
+- Menção específica à "Configuração CLP"
 
 ---
 
-## 📱 Responsividade Mantida
+## 🎨 ELEMENTOS DE DESIGN
 
-### Desktop (md+)
-- Injetoras: 4 cards por linha
-- Painel Ordem: 2 cards por linha
+### **Tipografia**
+| Elemento | Fonte | Peso | Tamanho |
+|----------|-------|------|---------|
+| Nome da Injetora | Default | 700 | 18px |
+| Descrição | Default | 400 | 13px |
+| Endereço IP | Monospace | 700 | 15px |
+| Labels | Default | 600 | 10-11px |
+| Valores | Default | 700 | Variável |
 
-### Tablet (sm)
-- Injetoras: 2 cards por linha
-- Painel Ordem: 1 card por linha
+### **Espaçamento**
+- Padding do card: `3` (24px)
+- Spacing entre elementos: `2.5` (20px)
+- Border radius: `3` (24px para card), `2` (16px para boxes internos)
 
-### Mobile (xs)
-- Todos: 1 card por linha
-
----
-
-## ✅ Checklist de Melhorias
-
-### Injetoras
-- [x] IP visível e destacado
-- [x] Estrutura sem CardContent
-- [x] Ícone com margem adequada
-- [x] IP em cor primária e bold
-- [x] Label "Endereço IP:" em caption
-- [x] Separação visual com borda
-- [x] Width 100% na seção do IP
-- [x] Display block nas labels
-
-### Painel Ordem
-- [x] Header com chips organizado
-- [x] Ordem e Quantidade em destaque
-- [x] Alinhamento (esq/dir) no header
-- [x] Divisor visual entre seções
-- [x] Grid 2x2 consistente
-- [x] Labels + valores padronizados
-- [x] Apontamento em verde
-- [x] Rodapé com produto destacado
-- [x] Overflow hidden no card
-- [x] Espaçamentos otimizados
+### **Cores**
+- Background: Gradiente suave do tema
+- Border: `alpha(divider, 0.1)`
+- Primary boxes: `alpha(primary, 0.05)`
+- Info boxes: `alpha(info, 0.05)`
+- Warning boxes: `alpha(warning, 0.05)`
 
 ---
 
-## 🔍 Antes e Depois
+## 📊 ANTES vs DEPOIS
 
-### Injetoras
+### ❌ ANTES:
+```
+┌─────────────────┐
+│   [ Ícone ]     │
+│                 │
+│  Nome da CLP    │
+│                 │
+│  Descrição      │
+│                 │
+│ ──────────────  │
+│  Endereço IP:   │
+│  192.168.1.100  │
+└─────────────────┘
+```
+- Design básico e simples
+- Informações mínimas
+- Sem indicação de status
+- Sem destaque visual
+- Hover básico
 
-#### ❌ Antes
+### ✅ DEPOIS:
 ```
-- IP não aparecia ou estava escondido
-- CardContent causava problemas de layout
-- Informações não hierarquizadas
+┌─────────────────────┐
+│ ████ (barra colorida)
+│ [Online] [Ícone🎨] │
+│                     │
+│ Nome Gradiente 🌈   │
+│ Descrição detalhada │
+│                     │
+│ ┌─────────────────┐ │
+│ │ 🌐 Endereço IP  │ │
+│ │ 192.168.1.100   │ │
+│ └─────────────────┘ │
+│                     │
+│ ┌───────┐ ┌───────┐│
+│ │⚡Porta │ │🧠Slave││
+│ │  502  │ │   1   ││
+│ └───────┘ └───────┘│
+│                     │
+│ ╔═════════════════╗│
+│ ║⚡Clique aqui...║│
+│ ╚═════════════════╝│
+└─────────────────────┘
 ```
-
-#### ✅ Depois
-```
-✓ IP visível em destaque (bold, azul)
-✓ Layout limpo sem CardContent
-✓ Hierarquia visual clara
-✓ Fácil identificação do endereço
-```
-
-### Painel Ordem
-
-#### ❌ Antes
-```
-- Informações todas do mesmo tamanho
-- Sem separação visual entre seções
-- Layout monótono e confuso
-- Difícil leitura rápida
-```
-
-#### ✅ Depois
-```
-✓ Ordem e Quantidade em destaque (H5)
-✓ Seções claramente divididas
-✓ Hierarquia visual definida
-✓ Leitura rápida e intuitiva
-✓ Produto destacado no rodapé
-```
+- Design moderno e profissional
+- Informações completas e organizadas
+- Badge de status com animação
+- Gradientes únicos por card
+- Múltiplos hover effects
 
 ---
 
-## 📊 Impacto das Melhorias
+## 🔧 DETALHES TÉCNICOS
 
-### UX (Experiência do Usuário)
-- ✅ Informação mais rápida de localizar
-- ✅ Hierarquia visual clara
-- ✅ Leitura mais confortável
-- ✅ Menos esforço cognitivo
+### **Imports Adicionados:**
+```typescript
+import {
+  Chip,
+  Stack,
+  alpha,
+  useTheme,
+} from '@mui/material';
 
-### UI (Interface do Usuário)
-- ✅ Layout mais profissional
-- ✅ Uso adequado de espaços
-- ✅ Cores com propósito
-- ✅ Consistência visual
+import { 
+  Router as RouterIcon,
+  FiberManualRecord as StatusIcon,
+  Speed as SpeedIcon,
+  Memory as MemoryIcon,
+} from '@mui/icons-material';
+```
 
-### Performance
-- ✅ Mesma performance (sem impacto)
-- ✅ Código mais limpo
-- ✅ Menos componentes aninhados
+### **Theme Hook:**
+```typescript
+const theme = useTheme();
+```
+Permite acesso às cores e estilos do tema para criar designs consistentes.
 
----
-
-## 🚀 Como Testar
-
-### Injetoras
-1. Acessar `/injectors`
-2. Verificar se o **IP aparece claramente** no card
-3. Confirmar que está em **azul e negrito**
-4. Verificar separação visual com linha
-
-### Painel Ordem
-1. Acessar `/injectors/{id}/orders`
-2. Verificar **Ordem e Quantidade** em destaque
-3. Confirmar **divisor** entre seções
-4. Verificar **produto no rodapé** com fundo cinza
-5. Confirmar **apontamento em verde**
+### **Gradientes Dinâmicos:**
+```typescript
+const gradients = [/* array de 6 gradientes */];
+const gradient = gradients[index % gradients.length];
+```
+Cada card recebe um gradiente baseado no seu índice, garantindo variedade visual.
 
 ---
 
-## 📝 Arquivos Modificados
+## 🎯 BENEFÍCIOS
 
-1. ✅ `frontend/src/pages/Injectors.tsx`
-   - Removido CardContent
-   - IP destacado em bold e cor primária
-   - Layout reorganizado
+### **Para o Usuário:**
+1. ✅ **Identificação rápida** de máquinas online/offline
+2. ✅ **Informações técnicas** em destaque
+3. ✅ **Visual atrativo** e moderno
+4. ✅ **Hierarquia clara** de informações
+5. ✅ **Feedback visual** em hover
+6. ✅ **Call-to-action** claro
 
-2. ✅ `frontend/src/pages/OrderPanel.tsx`
-   - Header com chips reorganizado
-   - Ordem/Quantidade em H5
-   - Grid organizado 2x2
-   - Divisor visual
-   - Rodapé com produto
-   - Espaçamentos otimizados
-
----
-
-## 🎉 Resultado
-
-✅ **IP agora está visível e destacado na página Injetoras**  
-✅ **Cards do Painel Ordem estão organizados e agradáveis**  
-✅ **Hierarquia visual clara em ambas as páginas**  
-✅ **Layout profissional e moderno**  
-✅ **Zero erros de compilação**
+### **Para a Experiência:**
+1. ✅ **Profissionalismo** aumentado
+2. ✅ **Confiança** na plataforma
+3. ✅ **Navegação** intuitiva
+4. ✅ **Distinção visual** entre máquinas
+5. ✅ **Responsividade** mantida
+6. ✅ **Acessibilidade** preservada
 
 ---
 
-**Data**: Outubro 2025  
-**Status**: ✅ Implementado e Testado
+## 📱 RESPONSIVIDADE
 
+Grid adaptativo:
+- **xs (mobile)**: 1 coluna (12/12)
+- **sm (tablet)**: 2 colunas (6/12)
+- **md (desktop)**: 3 colunas (4/12)
+- **lg (wide)**: 4 colunas (3/12)
+
+Todos os elementos se adaptam automaticamente ao tamanho da tela.
+
+---
+
+## ✅ STATUS
+
+**🎉 LAYOUT PROFISSIONAL IMPLEMENTADO COM SUCESSO!**
+
+A página de Injetoras agora tem:
+- ✨ Design moderno e atraente
+- 📊 Informações claras e organizadas
+- 🎨 Gradientes únicos e visuais
+- 📡 Status online/offline visível
+- ⚡ Interatividade aprimorada
+- 🎯 Call-to-action claro
+
+---
+
+## 🚀 PRÓXIMOS PASSOS POSSÍVEIS
+
+1. **Status Real**: Integrar com API para status online/offline real
+2. **Última Comunicação**: Mostrar timestamp da última comunicação
+3. **Gráficos**: Adicionar mini-gráficos de performance
+4. **Filtros**: Adicionar filtros por status (online/offline)
+5. **Busca**: Campo de busca para encontrar injetoras
+6. **Ordenação**: Permitir ordenar por nome, IP, status
+
+---
+
+**Data da Melhoria**: 24/10/2025  
+**Versão**: 2.0.0  
+**Tipo**: Major Update - Layout Completamente Redesenhado  
+**Arquivo**: `frontend/src/pages/Injectors.tsx`

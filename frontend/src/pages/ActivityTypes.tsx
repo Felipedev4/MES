@@ -365,6 +365,7 @@ export default function ActivityTypes() {
               <TableCell>Nome</TableCell>
               <TableCell align="center">Tipo</TableCell>
               <TableCell align="center">Cor</TableCell>
+              <TableCell>Setores Vinculados</TableCell>
               <TableCell align="center">Usos</TableCell>
               <TableCell align="center">Status</TableCell>
               <TableCell align="center">Ações</TableCell>
@@ -373,7 +374,7 @@ export default function ActivityTypes() {
           <TableBody>
             {filteredActivityTypes.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                   <Typography variant="body2" color="text.secondary">
                     {searchTerm || filterType !== 'ALL' || filterStatus !== 'ALL'
                       ? 'Nenhum tipo de atividade encontrado com os filtros aplicados'
@@ -427,6 +428,28 @@ export default function ActivityTypes() {
                         border: `2px solid ${alpha(activityType.color || '#ccc', 0.3)}`,
                       }}
                     />
+                  </TableCell>
+                  <TableCell>
+                    {activityType.activityTypeSectors && activityType.activityTypeSectors.length > 0 ? (
+                      <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ gap: 0.5 }}>
+                        {activityType.activityTypeSectors.map((ats) => (
+                          <Chip
+                            key={ats.id}
+                            icon={<SectorIcon fontSize="small" />}
+                            label={ats.sector.code}
+                            size="small"
+                            variant="outlined"
+                            color="info"
+                            sx={{ fontWeight: 500 }}
+                            title={`${ats.sector.code} - ${ats.sector.name}`}
+                          />
+                        ))}
+                      </Stack>
+                    ) : (
+                      <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                        Nenhum setor vinculado
+                      </Typography>
+                    )}
                   </TableCell>
                   <TableCell align="center">
                     <Chip

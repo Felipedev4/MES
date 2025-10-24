@@ -18,15 +18,23 @@ import {
   FormControlLabel,
   Tooltip,
   LinearProgress,
+  alpha,
+  useTheme,
+  Stack,
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
-import { Assignment as OrderIcon, SettingsInputComponent as InjectorIcon } from '@mui/icons-material';
+import { 
+  Assignment as OrderIcon, 
+  SettingsInputComponent as InjectorIcon,
+  TrendingUp as ProgressIcon,
+} from '@mui/icons-material';
 import PageHeader from '../components/PageHeader';
 import api from '../services/api';
 import { ProductionOrder } from '../types';
 
 const OrderPanel: React.FC = () => {
+  const theme = useTheme();
   const navigate = useNavigate();
   const { plcId } = useParams<{ plcId: string }>();
   const { enqueueSnackbar } = useSnackbar();
@@ -154,16 +162,54 @@ const OrderPanel: React.FC = () => {
   const getUrgencyChip = (order: ProductionOrder) => {
     // Lógica para determinar urgência (pode ser customizada)
     if (order.status === 'ACTIVE') {
-      return <Chip label="URGENTE" color="error" size="small" sx={{ fontWeight: 'bold' }} />;
+      return (
+        <Chip 
+          label="URGENTE" 
+          size="small" 
+          sx={{ 
+            fontWeight: 700,
+            fontSize: 11,
+            background: `linear-gradient(135deg, ${theme.palette.error.main} 0%, ${theme.palette.error.dark} 100%)`,
+            color: 'white',
+            animation: 'pulse 2s infinite',
+            '@keyframes pulse': {
+              '0%, 100%': { opacity: 1 },
+              '50%': { opacity: 0.8 },
+            },
+          }} 
+        />
+      );
     } else if (order.status === 'PROGRAMMING') {
-      return <Chip label="Programação" color="default" size="small" />;
+      return (
+        <Chip 
+          label="Programação" 
+          size="small"
+          sx={{
+            fontWeight: 600,
+            fontSize: 11,
+            background: alpha(theme.palette.grey[500], 0.15),
+            color: 'text.secondary',
+          }}
+        />
+      );
     }
     return null;
   };
 
   const getActivityChip = (order: ProductionOrder) => {
     if (order.status === 'ACTIVE') {
-      return <Chip label="Em Atividade" color="warning" size="small" sx={{ fontWeight: 'bold', bgcolor: '#d4e157' }} />;
+      return (
+        <Chip 
+          label="Em Atividade" 
+          size="small" 
+          sx={{ 
+            fontWeight: 700,
+            fontSize: 11,
+            background: `linear-gradient(135deg, ${theme.palette.warning.main} 0%, ${theme.palette.warning.dark} 100%)`,
+            color: 'white',
+          }} 
+        />
+      );
     }
     return null;
   };
@@ -187,7 +233,7 @@ const OrderPanel: React.FC = () => {
         icon={<InjectorIcon />}
         title={`Painel Ordem - ${plcName || 'Carregando...'}`}
         subtitle="Consulta de ordens vinculadas à injetora"
-        iconGradient="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+        iconGradient="linear-gradient(135deg, #2196f3 0%, #1976d2 100%)"
         breadcrumbs={[
           { label: 'Injetoras', path: '/injectors' },
           { label: 'Painel Ordem' },
@@ -196,18 +242,18 @@ const OrderPanel: React.FC = () => {
 
       {/* Controles de Atualização Automática */}
       <Paper 
-        elevation={0} 
+        elevation={2} 
         sx={{ 
-          p: { xs: 1, sm: 1.25 }, 
+          p: { xs: 2, sm: 2.5 }, 
           mb: 3, 
           display: 'flex', 
           flexDirection: { xs: 'column', sm: 'row' },
-          gap: { xs: 1, sm: 1.5 },
+          gap: { xs: 2, sm: 2 },
           alignItems: { xs: 'stretch', sm: 'center' },
           justifyContent: 'space-between',
-          bgcolor: 'rgba(0, 0, 0, 0.02)',
-          borderRadius: 1.5,
-          border: '1px solid rgba(0, 0, 0, 0.06)',
+          background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.04)} 0%, ${alpha(theme.palette.primary.main, 0.02)} 100%)`,
+          borderRadius: 3,
+          border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
         }}
       >
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 1, sm: 1.5 }, alignItems: { xs: 'stretch', sm: 'center' }, flex: 1 }}>
@@ -267,34 +313,43 @@ const OrderPanel: React.FC = () => {
 
       {/* Grid de Ordens */}
       <Grid container spacing={{ xs: 2, md: 3 }}>
-        {orders.map((order) => (
-          <Grid item xs={12} md={6} key={order.id}>
-            <Card 
-              elevation={3}
-              sx={{
-                height: '100%',
-                transition: 'transform 0.2s, box-shadow 0.2s',
-                '&:hover': {
-                  transform: 'translateY(-2px)',
-                  boxShadow: 6,
-                },
-                overflow: 'hidden',
-              }}
-            >
+        {orders.map((order) => {
+          const progress = (order.producedQuantity / order.plannedQuantity) * 100;
+          const isActive = order.status === 'ACTIVE';
+          
+          return (
+            <Grid item xs={12} md={6} key={order.id}>
+              <Card 
+                elevation={isActive ? 8 : 3}
+                sx={{
+                  height: '100%',
+                  borderRadius: 3,
+                  overflow: 'hidden',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  border: `2px solid ${isActive ? theme.palette.warning.main : alpha(theme.palette.divider, 0.1)}`,
+                  background: isActive 
+                    ? `linear-gradient(135deg, ${alpha(theme.palette.warning.main, 0.08)} 0%, ${alpha(theme.palette.warning.main, 0.03)} 100%)`
+                    : 'background.paper',
+                  '&:hover': {
+                    transform: 'translateY(-8px)',
+                    boxShadow: `0 12px 28px ${alpha(theme.palette.primary.main, 0.2)}`,
+                  },
+                }}
+              >
               <CardActionArea onClick={() => handleOrderClick(order.id)}>
                 {/* Barra de Progresso Visual */}
                 <LinearProgress 
                   variant="determinate" 
-                  value={Math.min((order.producedQuantity / order.plannedQuantity) * 100, 100)}
+                  value={Math.min(progress, 100)}
                   sx={{
                     height: 6,
-                    bgcolor: 'rgba(0, 0, 0, 0.05)',
+                    backgroundColor: alpha(theme.palette.grey[500], 0.15),
                     '& .MuiLinearProgress-bar': {
-                      bgcolor: order.producedQuantity >= order.plannedQuantity 
-                        ? '#4caf50' 
-                        : order.producedQuantity >= order.plannedQuantity * 0.8
-                          ? '#ff9800'
-                          : '#2196f3',
+                      background: progress >= 100
+                        ? `linear-gradient(90deg, ${theme.palette.success.main} 0%, ${theme.palette.success.dark} 100%)`
+                        : progress >= 80
+                          ? `linear-gradient(90deg, ${theme.palette.warning.main} 0%, ${theme.palette.warning.dark} 100%)`
+                          : `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
                     },
                   }}
                 />
@@ -302,22 +357,31 @@ const OrderPanel: React.FC = () => {
                 {/* Chips de Status no Topo */}
                 <Box 
                   sx={{ 
-                    bgcolor: '#f5f5f5',
-                    p: 1.5,
+                    background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.06)} 0%, ${alpha(theme.palette.primary.main, 0.02)} 100%)`,
+                    p: 2,
                     display: 'flex',
-                    gap: 1,
+                    gap: 1.5,
                     flexWrap: 'wrap',
                     justifyContent: 'space-between',
                     alignItems: 'center',
+                    borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
                   }}
                 >
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  <Stack direction="row" spacing={1}>
                     {getUrgencyChip(order)}
                     {getActivityChip(order)}
-                  </Box>
-                  <Typography variant="body2" fontWeight="bold" color="primary" sx={{ fontSize: '0.95rem' }}>
-                    {Math.round((order.producedQuantity / order.plannedQuantity) * 100)}% concluído
-                  </Typography>
+                  </Stack>
+                  <Stack direction="row" spacing={0.5} alignItems="center">
+                    <ProgressIcon 
+                      sx={{ 
+                        fontSize: 16, 
+                        color: progress >= 100 ? 'success.main' : 'primary.main' 
+                      }} 
+                    />
+                    <Typography variant="body2" fontWeight={700} color={progress >= 100 ? 'success.main' : 'primary.main'}>
+                      {Math.round(progress)}%
+                    </Typography>
+                  </Stack>
                 </Box>
 
                 <CardContent sx={{ p: 3 }}>
@@ -455,7 +519,8 @@ const OrderPanel: React.FC = () => {
               </CardActionArea>
             </Card>
           </Grid>
-        ))}
+          );
+        })}
       </Grid>
 
       {/* Mensagem quando não há ordens */}

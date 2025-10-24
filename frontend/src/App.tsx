@@ -34,6 +34,7 @@ import UserCompanies from './pages/UserCompanies';
 import EmailConfig from './pages/EmailConfig';
 import MaintenanceAlerts from './pages/MaintenanceAlerts';
 import EmailCenter from './pages/EmailCenter';
+import Reports from './pages/Reports';
 
 // Components
 import Layout from './components/Layout/Layout';
@@ -101,6 +102,7 @@ const App: React.FC = () => {
               <Route path="/email-config" element={<EmailConfig />} />
               <Route path="/maintenance-alerts" element={<MaintenanceAlerts />} />
               <Route path="/email-center" element={<EmailCenter />} />
+              <Route path="/reports" element={<Reports />} />
             </Route>
           </Routes>
         </SocketProvider>

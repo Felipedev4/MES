@@ -1,8 +1,8 @@
 /**
- * Página de Ordens de Produção
+ * Página de Ordens de Produção - Design Profissional
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   Box,
   Button,
@@ -23,13 +23,29 @@ import {
   MenuItem,
   Autocomplete,
   Typography,
+  alpha,
+  useTheme,
+  LinearProgress,
+  Tooltip,
+  Stack,
+  Grid,
+  InputAdornment,
 } from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
-import AddIcon from '@mui/icons-material/Add';
-import AssignmentIcon from '@mui/icons-material/Assignment';
-import PaletteIcon from '@mui/icons-material/Palette';
+import {
+  Edit as EditIcon,
+  Add as AddIcon,
+  Assignment as AssignmentIcon,
+  Palette as PaletteIcon,
+  Close as CloseIcon,
+  Search as SearchIcon,
+  FilterList as FilterIcon,
+  CheckCircle as CheckCircleIcon,
+  PauseCircle as PausedIcon,
+  TrendingUp as ProgressIcon,
+} from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import PageHeader from '../components/PageHeader';
+import StatsCard from '../components/StatsCard';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import api from '../services/api';
@@ -70,6 +86,7 @@ const formatDateTimeForInput = (date: Date | string): string => {
 };
 
 const ProductionOrders: React.FC = () => {
+  const theme = useTheme();
   const [orders, setOrders] = useState<ProductionOrder[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [molds, setMolds] = useState<Mold[]>([]);
@@ -77,6 +94,8 @@ const ProductionOrders: React.FC = () => {
   const [selectedColor, setSelectedColor] = useState<Color | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<ProductionOrder | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const { enqueueSnackbar} = useSnackbar();
 
   const { control, handleSubmit, reset, setValue, formState: { errors } } = useForm<OrderFormData>({
@@ -199,6 +218,37 @@ const ProductionOrders: React.FC = () => {
     }
   };
 
+  // Filtrar ordens
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      const matchesSearch =
+        order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.item?.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.item?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesStatus =
+        filterStatus === 'ALL' ||
+        order.status === filterStatus;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [orders, searchTerm, filterStatus]);
+
+  // Estatísticas
+  const stats = useMemo(() => {
+    const total = orders.length;
+    const active = orders.filter((o) => o.status === 'ACTIVE').length;
+    const programming = orders.filter((o) => o.status === 'PROGRAMMING').length;
+    const paused = orders.filter((o) => o.status === 'PAUSED').length;
+    const finished = orders.filter((o) => o.status === 'FINISHED').length;
+    const totalPlanned = orders.reduce((sum, o) => sum + o.plannedQuantity, 0);
+    const totalProduced = orders.reduce((sum, o) => sum + o.producedQuantity, 0);
+    const avgProgress = total > 0 
+      ? orders.reduce((sum, o) => sum + ((o.producedQuantity / o.plannedQuantity) * 100), 0) / total 
+      : 0;
+
+    return { total, active, programming, paused, finished, totalPlanned, totalProduced, avgProgress };
+  }, [orders]);
 
   return (
     <Box sx={{ maxWidth: '100%', overflow: 'hidden', p: { xs: 2, sm: 0 } }}>
@@ -208,23 +258,109 @@ const ProductionOrders: React.FC = () => {
         subtitle="Gerenciamento de ordens de produção"
         iconGradient="linear-gradient(135deg, #2196f3 0%, #1976d2 100%)"
       />
-      
-      <Box display="flex" justifyContent="flex-end" mb={{ xs: 2, md: 3 }}>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpenDialog()}
-          size="small"
-        >
-          Nova Ordem
-        </Button>
-      </Box>
+
+      {/* Cards de Estatísticas */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatsCard
+            title="Total de Ordens"
+            value={stats.total}
+            subtitle="Cadastradas"
+            icon={<AssignmentIcon sx={{ fontSize: 32 }} />}
+            color={theme.palette.info.main}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatsCard
+            title="Em Produção"
+            value={stats.active}
+            subtitle={`${stats.total > 0 ? Math.round((stats.active / stats.total) * 100) : 0}% do total`}
+            icon={<CheckCircleIcon sx={{ fontSize: 32 }} />}
+            color={theme.palette.success.main}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatsCard
+            title="Programação/Pausadas"
+            value={`${stats.programming}/${stats.paused}`}
+            subtitle="Aguardando"
+            icon={<PausedIcon sx={{ fontSize: 32 }} />}
+            color={theme.palette.warning.main}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatsCard
+            title="Progresso Médio"
+            value={`${stats.avgProgress.toFixed(1)}%`}
+            subtitle={`${stats.totalProduced.toLocaleString()}/${stats.totalPlanned.toLocaleString()} pçs`}
+            icon={<ProgressIcon sx={{ fontSize: 32 }} />}
+            color={theme.palette.primary.main}
+          />
+        </Grid>
+      </Grid>
+
+      {/* Barra de Ações e Filtros */}
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
+          <TextField
+            placeholder="Buscar por número, código ou nome do item..."
+            size="small"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            sx={{ flexGrow: 1 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon color="action" />
+                </InputAdornment>
+              ),
+            }}
+          />
+
+          <TextField
+            select
+            size="small"
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            sx={{ minWidth: 150 }}
+            SelectProps={{ native: true }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <FilterIcon color="action" fontSize="small" />
+                </InputAdornment>
+              ),
+            }}
+          >
+            <option value="ALL">Todos Status</option>
+            <option value="PROGRAMMING">Programação</option>
+            <option value="ACTIVE">Ativas</option>
+            <option value="PAUSED">Pausadas</option>
+            <option value="FINISHED">Finalizadas</option>
+            <option value="CANCELLED">Canceladas</option>
+          </TextField>
+
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenDialog()}
+            sx={{ whiteSpace: 'nowrap' }}
+          >
+            Nova Ordem
+          </Button>
+        </Stack>
+      </Paper>
 
       <TableContainer 
-        component={Paper} 
+        component={Paper}
         sx={{ 
           maxHeight: { xs: 'calc(100vh - 250px)', md: 'calc(100vh - 300px)' },
-          overflow: 'auto'
+          overflow: 'auto',
+          '& .MuiTableCell-head': {
+            backgroundColor: theme.palette.grey[100],
+            fontWeight: 600,
+            fontSize: '0.875rem',
+          },
         }}
       >
         <Table stickyHeader size="small">
@@ -243,59 +379,141 @@ const ProductionOrders: React.FC = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {orders.map((order) => (
-              <TableRow key={order.id}>
-                <TableCell>{order.orderNumber}</TableCell>
-                <TableCell>{order.item?.name || '-'}</TableCell>
-                <TableCell>
-                  {order.color ? (
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Box
-                        sx={{
-                          width: 20,
-                          height: 20,
-                          borderRadius: '50%',
-                          bgcolor: order.color.hexCode || '#ccc',
-                          border: '2px solid #fff',
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                        }}
-                      />
-                      <Typography variant="body2">{order.color.name}</Typography>
-                    </Box>
-                  ) : (
-                    <Typography variant="body2" color="text.secondary">-</Typography>
-                  )}
-                </TableCell>
-                <TableCell>{order.mold?.name || '-'}</TableCell>
-                <TableCell>{order.plannedQuantity}</TableCell>
-                <TableCell>{order.producedQuantity}</TableCell>
-                <TableCell>
-                  {((order.producedQuantity / order.plannedQuantity) * 100).toFixed(1)}%
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={`${getStatusIcon(order.status)} ${getStatusLabel(order.status)}`}
-                    color={getStatusColor(order.status)}
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell>{order.priority}</TableCell>
-                <TableCell align="right">
-                  <IconButton onClick={() => handleOpenDialog(order)} size="small">
-                    <EditIcon />
-                  </IconButton>
+            {filteredOrders.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    {searchTerm || filterStatus !== 'ALL'
+                      ? 'Nenhuma ordem encontrada com os filtros aplicados'
+                      : 'Nenhuma ordem cadastrada'}
+                  </Typography>
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              filteredOrders.map((order) => {
+                const progress = (order.producedQuantity / order.plannedQuantity) * 100;
+                
+                return (
+                <TableRow 
+                  key={order.id}
+                  hover
+                  sx={{
+                    '&:hover': {
+                      backgroundColor: alpha(theme.palette.primary.main, 0.04),
+                    },
+                  }}
+                >
+                  <TableCell sx={{ fontWeight: 600, color: theme.palette.primary.main }}>{order.orderNumber}</TableCell>
+                  <TableCell sx={{ fontWeight: 500 }}>{order.item?.name || '-'}</TableCell>
+                  <TableCell>
+                    {order.color ? (
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <Box
+                          sx={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: '8px',
+                            bgcolor: order.color.hexCode || '#ccc',
+                            border: `2px solid ${alpha(theme.palette.divider, 0.2)}`,
+                            boxShadow: `0 2px 4px ${alpha(order.color.hexCode || '#000', 0.3)}`,
+                          }}
+                        />
+                        <Typography variant="body2" fontWeight={500}>{order.color.name}</Typography>
+                      </Stack>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">-</Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>{order.mold?.name || '-'}</TableCell>
+                  <TableCell>
+                    <Typography variant="body2" fontWeight={600}>
+                      {order.plannedQuantity.toLocaleString()}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" fontWeight={600} color={order.producedQuantity > 0 ? 'success.main' : 'text.secondary'}>
+                      {order.producedQuantity.toLocaleString()}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Box sx={{ minWidth: 100 }}>
+                      <Typography variant="caption" fontWeight={600} color="text.secondary" display="block" mb={0.5}>
+                        {progress.toFixed(1)}%
+                      </Typography>
+                      <LinearProgress 
+                        variant="determinate" 
+                        value={Math.min(progress, 100)} 
+                        color={progress >= 100 ? 'success' : progress >= 50 ? 'primary' : 'warning'}
+                        sx={{ height: 6, borderRadius: 1 }}
+                      />
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={`${getStatusIcon(order.status)} ${getStatusLabel(order.status)}`}
+                      color={getStatusColor(order.status)}
+                      size="small"
+                      sx={{ fontWeight: 600 }}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Chip 
+                      label={order.priority} 
+                      size="small"
+                      color="warning"
+                      variant="outlined"
+                      sx={{ fontWeight: 600 }}
+                    />
+                  </TableCell>
+                  <TableCell align="right">
+                    <Tooltip title="Editar">
+                      <IconButton 
+                        onClick={() => handleOpenDialog(order)} 
+                        size="small"
+                        color="primary"
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
+                </TableRow>
+              );
+            })
+            )}
           </TableBody>
         </Table>
       </TableContainer>
 
       {/* Dialog de Cadastro/Edição */}
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="md" fullWidth>
+      <Dialog 
+        open={dialogOpen} 
+        onClose={handleCloseDialog} 
+        maxWidth="md" 
+        fullWidth
+      >
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogTitle>
-            {editingOrder ? 'Editar Ordem de Produção' : 'Nova Ordem de Produção'}
+            <Box display="flex" alignItems="center" justifyContent="space-between">
+              <Box display="flex" alignItems="center" gap={1}>
+                <AssignmentIcon color="primary" />
+                <Typography variant="h6" fontWeight={600}>
+                  {editingOrder ? 'Editar Ordem de Produção' : 'Nova Ordem de Produção'}
+                </Typography>
+              </Box>
+              <IconButton 
+                onClick={handleCloseDialog}
+                size="small"
+                sx={{
+                  color: 'text.secondary',
+                  '&:hover': {
+                    background: alpha(theme.palette.error.main, 0.1),
+                    color: 'error.main',
+                  },
+                }}
+              >
+                <CloseIcon />
+              </IconButton>
+            </Box>
           </DialogTitle>
           <DialogContent>
             <Controller
@@ -531,10 +749,12 @@ const ProductionOrders: React.FC = () => {
               )}
             />
           </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseDialog}>Cancelar</Button>
-            <Button type="submit" variant="contained">
-              Salvar
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={handleCloseDialog}>
+              Cancelar
+            </Button>
+            <Button type="submit" variant="contained" color="primary">
+              {editingOrder ? 'Atualizar' : 'Criar Ordem'}
             </Button>
           </DialogActions>
         </form>

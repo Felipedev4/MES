@@ -43,6 +43,7 @@ import cycleChangeRoutes from './routes/cycleChangeRoutes';
 import colorRoutes from './routes/colorRoutes';
 import emailConfigRoutes from './routes/emailConfigRoutes';
 import maintenanceAlertRoutes from './routes/maintenanceAlertRoutes';
+import reportsRoutes from './routes/reports';
 
 // Services
 import { modbusService } from './services/modbusService';
@@ -147,6 +148,7 @@ app.use('/api/data-collector', dataCollectorRoutes);
 app.use('/api/cycle-changes', cycleChangeRoutes);
 app.use('/api/colors', colorRoutes);
 app.use('/api/email-configs', emailConfigRoutes);
+app.use('/api/reports', reportsRoutes);
 app.use('/api/maintenance-alerts', maintenanceAlertRoutes);
 
 // Handler de rotas não encontradas

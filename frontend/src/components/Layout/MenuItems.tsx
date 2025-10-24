@@ -31,6 +31,7 @@ import LabelIcon from '@mui/icons-material/Label';
 import GroupWorkIcon from '@mui/icons-material/GroupWork';
 import EmailIcon from '@mui/icons-material/Email';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
+import AssessmentIcon from '@mui/icons-material/Assessment';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import FactoryIcon from '@mui/icons-material/Factory';
@@ -66,6 +67,7 @@ const MenuItems: React.FC<MenuItemsProps> = ({ onItemClick }) => {
   const [openSections, setOpenSections] = useState<{ [key: string]: boolean }>({
     operational: true,
     register: true,
+    reports: true,
     admin: true,
   });
 
@@ -108,6 +110,14 @@ const MenuItems: React.FC<MenuItemsProps> = ({ onItemClick }) => {
         { text: 'Defeitos', icon: <BugReportIcon />, path: '/defects', resource: 'defects' },
         { text: 'Tipos de Atividade', icon: <CategoryIcon />, path: '/activity-types', resource: 'activity_types' },
         { text: 'Tipos de Referência', icon: <LabelIcon />, path: '/reference-types', resource: 'reference_types' },
+      ]
+    },
+    {
+      title: 'Relatórios',
+      icon: <AssessmentIcon />,
+      color: '#9c27b0',
+      items: [
+        { text: 'Relatórios', icon: <AssessmentIcon />, path: '/reports', resource: 'reports' },
       ]
     },
     {
