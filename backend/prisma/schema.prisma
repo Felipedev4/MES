@@ -23,6 +23,7 @@ model User {
   department         String?
   employeeCode       String?   @unique
   selectedCompanyId  Int? // Empresa atualmente selecionada pelo usuário
+  shiftId            Int? // Turno padrão do colaborador
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -31,7 +32,9 @@ model User {
   cycleChanges           CycleChange[]
   userCompanies          UserCompany[]
   selectedCompany        Company?                @relation("UserSelectedCompany", fields: [selectedCompanyId], references: [id])
+  shift                  Shift?                  @relation(fields: [shiftId], references: [id])
 
+  @@index([shiftId])
   @@map("users")
 }
 
@@ -315,6 +318,7 @@ model Shift {
 
   company                Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
   productionAppointments ProductionAppointment[]
+  users                  User[] // Colaboradores vinculados a este turno
 
   @@unique([companyId, code])
   @@map("shifts")

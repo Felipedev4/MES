@@ -34,6 +34,16 @@ export const listUsers = async (req: Request, res: Response) => {
         employeeCode: true,
         phone: true,
         department: true,
+        shiftId: true,
+        shift: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            startTime: true,
+            endTime: true,
+          },
+        },
         mustChangePassword: true,
         lastPasswordChange: true,
         createdAt: true,
@@ -65,6 +75,16 @@ export const getUserById = async (req: Request, res: Response) => {
         employeeCode: true,
         phone: true,
         department: true,
+        shiftId: true,
+        shift: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            startTime: true,
+            endTime: true,
+          },
+        },
         mustChangePassword: true,
         lastPasswordChange: true,
         createdAt: true,
@@ -95,6 +115,7 @@ export const createUser = async (req: Request, res: Response) => {
       employeeCode,
       phone,
       department,
+      shiftId,
       mustChangePassword = true,
     } = req.body;
 
@@ -140,6 +161,7 @@ export const createUser = async (req: Request, res: Response) => {
         employeeCode: employeeCode || null,
         phone: phone || null,
         department: department || null,
+        shiftId: shiftId || null,
         mustChangePassword,
       },
       select: {
@@ -151,6 +173,16 @@ export const createUser = async (req: Request, res: Response) => {
         employeeCode: true,
         phone: true,
         department: true,
+        shiftId: true,
+        shift: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            startTime: true,
+            endTime: true,
+          },
+        },
         mustChangePassword: true,
         createdAt: true,
         updatedAt: true,
@@ -176,6 +208,7 @@ export const updateUser = async (req: Request, res: Response) => {
       employeeCode,
       phone,
       department,
+      shiftId,
       mustChangePassword,
       password,
     } = req.body;
@@ -223,6 +256,7 @@ export const updateUser = async (req: Request, res: Response) => {
       employeeCode: employeeCode || null,
       phone: phone || null,
       department: department || null,
+      shiftId: shiftId !== undefined ? (shiftId || null) : undefined,
       mustChangePassword,
     };
 
@@ -245,6 +279,16 @@ export const updateUser = async (req: Request, res: Response) => {
         employeeCode: true,
         phone: true,
         department: true,
+        shiftId: true,
+        shift: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            startTime: true,
+            endTime: true,
+          },
+        },
         mustChangePassword: true,
         lastPasswordChange: true,
         createdAt: true,

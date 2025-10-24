@@ -63,6 +63,14 @@ interface User {
   employeeCode?: string;
   phone?: string;
   department?: string;
+  shiftId?: number;
+  shift?: {
+    id: number;
+    name: string;
+    code: string;
+    startTime: string;
+    endTime: string;
+  };
   mustChangePassword: boolean;
   lastPasswordChange?: string;
   createdAt: string;
@@ -78,6 +86,7 @@ interface UserFormData {
   employeeCode: string;
   phone: string;
   department: string;
+  shiftId: number | '';
   mustChangePassword: boolean;
 }
 
@@ -90,6 +99,7 @@ const initialFormData: UserFormData = {
   employeeCode: '',
   phone: '',
   department: '',
+  shiftId: '',
   mustChangePassword: true};
 
 const roleLabels: Record<string, string> = {
@@ -106,11 +116,20 @@ const roleColors: Record<string, 'error' | 'warning' | 'info' | 'success' | 'def
   LEADER: 'success',
   OPERATOR: 'default'};
 
+interface Shift {
+  id: number;
+  name: string;
+  code: string;
+  startTime: string;
+  endTime: string;
+}
+
 export default function Users() {
   const { enqueueSnackbar } = useSnackbar();
   const theme = useTheme();
   
   const [users, setUsers] = useState<User[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -127,6 +146,7 @@ export default function Users() {
 
   useEffect(() => {
     loadUsers();
+    loadShifts();
   }, []);
 
   const loadUsers = async () => {
@@ -141,6 +161,15 @@ export default function Users() {
     }
   };
 
+  const loadShifts = async () => {
+    try {
+      const response = await api.get('/shifts');
+      setShifts(response.data);
+    } catch (error: any) {
+      console.error('Erro ao carregar turnos:', error);
+    }
+  };
+
   const handleOpenDialog = (user?: User) => {
     if (user) {
       setEditingId(user.id);
@@ -152,6 +181,7 @@ export default function Users() {
         employeeCode: user.employeeCode || '',
         phone: user.phone || '',
         department: user.department || '',
+        shiftId: user.shiftId || '',
         mustChangePassword: user.mustChangePassword});
     } else {
       setEditingId(null);
@@ -183,7 +213,8 @@ export default function Users() {
         ...formData,
         employeeCode: formData.employeeCode || null,
         phone: formData.phone || null,
-        department: formData.department || null};
+        department: formData.department || null,
+        shiftId: formData.shiftId || null};
 
       if (editingId) {
         await api.put(`/users/${editingId}`, dataToSend);
@@ -413,6 +444,9 @@ export default function Users() {
               <TableCell sx={{ fontWeight: 700, backgroundColor: alpha(theme.palette.primary.main, 0.05), display: { xs: 'none', md: 'table-cell' } }}>
                 Departamento
               </TableCell>
+              <TableCell sx={{ fontWeight: 700, backgroundColor: alpha(theme.palette.primary.main, 0.05), display: { xs: 'none', lg: 'table-cell' } }}>
+                Turno
+              </TableCell>
               <TableCell sx={{ fontWeight: 700, backgroundColor: alpha(theme.palette.primary.main, 0.05) }}>
                 Status
               </TableCell>
@@ -427,7 +461,7 @@ export default function Users() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 8 }}>
+                <TableCell colSpan={9} align="center" sx={{ py: 8 }}>
                   <Typography variant="body2" color="text.secondary">
                     Carregando colaboradores...
                   </Typography>
@@ -435,7 +469,7 @@ export default function Users() {
               </TableRow>
             ) : filteredUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 8 }}>
+                <TableCell colSpan={9} align="center" sx={{ py: 8 }}>
                   <WorkOutline sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
                   <Typography variant="body1" color="text.secondary" gutterBottom>
                     {searchText || filterRole || filterStatus
@@ -499,6 +533,25 @@ export default function Users() {
                         {user.department || '-'}
                       </Typography>
                     </Box>
+                  </TableCell>
+                  <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
+                    {user.shift ? (
+                      <Chip
+                        label={`${user.shift.name} (${user.shift.code})`}
+                        size="small"
+                        variant="outlined"
+                        sx={{ 
+                          fontWeight: 600,
+                          backgroundColor: alpha(theme.palette.info.main, 0.1),
+                          borderColor: theme.palette.info.main,
+                          color: theme.palette.info.main
+                        }}
+                      />
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        -
+                      </Typography>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Chip
@@ -697,6 +750,23 @@ export default function Users() {
                     </InputAdornment>
                   )}}
               />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                select
+                label="Turno Padrão"
+                value={formData.shiftId}
+                onChange={handleChange('shiftId')}
+                helperText="Turno em que o colaborador normalmente trabalha"
+              >
+                <MenuItem value="">Sem turno definido</MenuItem>
+                {shifts.map((shift) => (
+                  <MenuItem key={shift.id} value={shift.id}>
+                    {shift.name} ({shift.code}) - {shift.startTime} às {shift.endTime}
+                  </MenuItem>
+                ))}
+              </TextField>
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
