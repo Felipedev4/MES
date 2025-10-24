@@ -3,6 +3,7 @@
  */
 
 import { Response } from 'express';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../config/database';
 import { AuthenticatedRequest, getCompanyFilter } from '../middleware/companyFilter';
 
@@ -115,9 +116,9 @@ export async function createItem(req: AuthenticatedRequest, res: Response): Prom
         name,
         description,
         unit,
-        materialCost: materialCost !== null && materialCost !== undefined ? parseFloat(materialCost) : null,
-        laborCost: laborCost !== null && laborCost !== undefined ? parseFloat(laborCost) : null,
-        scrapCost: scrapCost !== null && scrapCost !== undefined ? parseFloat(scrapCost) : null,
+        materialCost: materialCost !== null && materialCost !== undefined ? new Prisma.Decimal(materialCost) : null,
+        laborCost: laborCost !== null && laborCost !== undefined ? new Prisma.Decimal(laborCost) : null,
+        scrapCost: scrapCost !== null && scrapCost !== undefined ? new Prisma.Decimal(scrapCost) : null,
         active,
         companyId, // Vincula à empresa do usuário
       },
@@ -167,9 +168,9 @@ export async function updateItem(req: AuthenticatedRequest, res: Response): Prom
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
     if (unit !== undefined) updateData.unit = unit;
-    if (materialCost !== undefined) updateData.materialCost = materialCost !== null ? parseFloat(materialCost) : null;
-    if (laborCost !== undefined) updateData.laborCost = laborCost !== null ? parseFloat(laborCost) : null;
-    if (scrapCost !== undefined) updateData.scrapCost = scrapCost !== null ? parseFloat(scrapCost) : null;
+    if (materialCost !== undefined) updateData.materialCost = materialCost !== null ? new Prisma.Decimal(materialCost) : null;
+    if (laborCost !== undefined) updateData.laborCost = laborCost !== null ? new Prisma.Decimal(laborCost) : null;
+    if (scrapCost !== undefined) updateData.scrapCost = scrapCost !== null ? new Prisma.Decimal(scrapCost) : null;
     if (active !== undefined) updateData.active = active;
 
     const item = await prisma.item.update({
