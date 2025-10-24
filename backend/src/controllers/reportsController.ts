@@ -45,7 +45,7 @@ export const getProductionReport = async (req: Request, res: Response) => {
       },
     });
     
-    const reportData = productions.map(prod => ({
+    const reportData = productions.map((prod: any) => ({
       'Data Início': prod.startDate ? new Date(prod.startDate).toLocaleDateString('pt-BR') : '-',
       'Data Fim': prod.endDate ? new Date(prod.endDate).toLocaleDateString('pt-BR') : '-',
       'Ordem': prod.productionOrder?.orderNumber || '-',
@@ -115,7 +115,7 @@ export const getDefectsReport = async (req: Request, res: Response) => {
       },
     });
     
-    const reportData = defects.map(defect => ({
+    const reportData = defects.map((defect: any) => ({
       'Data': new Date(defect.createdAt).toLocaleDateString('pt-BR'),
       'Hora': new Date(defect.createdAt).toLocaleTimeString('pt-BR'),
       'Defeito': defect.defect?.name || '-',
@@ -178,7 +178,7 @@ export const getDowntimeReport = async (req: Request, res: Response) => {
       },
     });
     
-    const reportData = downtimes.map(downtime => {
+    const reportData = downtimes.map((downtime: any) => {
       const duration = downtime.endTime 
         ? Math.round((new Date(downtime.endTime).getTime() - new Date(downtime.startTime).getTime()) / 60000)
         : 0;
@@ -242,7 +242,7 @@ export const getEfficiencyReport = async (req: Request, res: Response) => {
       },
     });
     
-    const reportData = productions.map(prod => {
+    const reportData = productions.map((prod: any) => {
       const plannedTime = prod.startDate && prod.endDate
         ? Math.round((new Date(prod.endDate).getTime() - new Date(prod.startDate).getTime()) / 60000)
         : 0;
@@ -314,7 +314,7 @@ export const getOrdersReport = async (req: Request, res: Response) => {
       },
     });
     
-    const reportData = orders.map(order => {
+    const reportData = orders.map((order: any) => {
       const progress = order.plannedQuantity > 0
         ? ((order.producedQuantity / order.plannedQuantity) * 100).toFixed(2)
         : '0.00';
