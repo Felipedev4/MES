@@ -9,6 +9,8 @@ export const createSectorSchema = yup.object().shape({
     code: yup.string().required('Código é obrigatório').max(50),
     name: yup.string().required('Nome é obrigatório').max(200),
     description: yup.string().max(500).nullable(),
+    email: yup.string().email('E-mail inválido').max(255).nullable(),
+    sendEmailOnAlert: yup.boolean().default(false),
     active: yup.boolean().default(true),
   }),
 });
@@ -22,6 +24,8 @@ export const updateSectorSchema = yup.object().shape({
     code: yup.string().max(50),
     name: yup.string().max(200),
     description: yup.string().max(500).nullable(),
+    email: yup.string().email('E-mail inválido').max(255).nullable(),
+    sendEmailOnAlert: yup.boolean(),
     active: yup.boolean(),
   }),
 });

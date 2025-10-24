@@ -545,3 +545,388 @@ export async function sendDowntimeNotification(
   }
 }
 
+/**
+ * Template de e-mail para notificação de parada - VERSÃO OTIMIZADA PARA TODOS OS CLIENTES
+ */
+export function getActivityDowntimeNotificationTemplate(downtime: any, productionOrder: any, activityType: any, sectors: any[]): string {
+  const typeColors = {
+    PRODUCTIVE: '#4caf50',
+    UNPRODUCTIVE: '#f44336',
+    PLANNED: '#2196f3'
+  };
+  const typeLabels = {
+    PRODUCTIVE: 'Produtiva',
+    UNPRODUCTIVE: 'Improdutiva',
+    PLANNED: 'Planejada'
+  };
+  
+  const typeColor = typeColors[activityType.type as keyof typeof typeColors] || '#ff9800';
+  const typeLabel = typeLabels[activityType.type as keyof typeof typeLabels] || 'Não definida';
+  const sectorsText = sectors.map(s => s.name).join(', ');
+  const startTime = new Date(downtime.startTime).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+  const isUnproductive = activityType.type === 'UNPRODUCTIVE';
+  
+  // Calcular tempo decorrido desde o início da parada
+  const now = new Date();
+  const start = new Date(downtime.startTime);
+  const diffMs = now.getTime() - start.getTime();
+  const diffMinutes = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const remainingMinutes = diffMinutes % 60;
+  const timeElapsed = diffHours > 0 ? `${diffHours}h ${remainingMinutes}min` : `${diffMinutes} minutos`;
+  
+  // Calcular percentual de produção
+  const producedQty = productionOrder.producedQuantity || 0;
+  const plannedQty = productionOrder.plannedQuantity || 0;
+  const percentComplete = plannedQty > 0 ? Math.round((producedQty / plannedQty) * 100) : 0;
+  
+  // Blocos condicionais
+  const observationsBlock = activityType.description ? `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:20px; background-color:#fff8e1; border-left:4px solid #ffc107; border-radius:4px;">
+      <tr>
+        <td style="padding:15px;">
+          <p style="margin:0; color:#5f6368; font-size:14px;"><strong>📝 Observações:</strong> ${activityType.description}</p>
+        </td>
+      </tr>
+    </table>
+  ` : '';
+  
+  const itemRow = productionOrder.item ? `
+    <tr>
+      <td style="font-weight:bold; color:#5f6368; font-size:14px; border-bottom:1px solid #e0e0e0;">Item:</td>
+      <td style="text-align:right; color:#202124; font-size:14px; border-bottom:1px solid #e0e0e0;">${productionOrder.item.name} (${productionOrder.item.code})</td>
+    </tr>
+  ` : '';
+  
+  const moldRow = productionOrder.mold ? `
+    <tr>
+      <td style="font-weight:bold; color:#5f6368; font-size:14px; border-bottom:1px solid #e0e0e0;">Molde:</td>
+      <td style="text-align:right; color:#202124; font-size:14px; border-bottom:1px solid #e0e0e0;">${productionOrder.mold.name} (${productionOrder.mold.code})</td>
+    </tr>
+  ` : '';
+  
+  const sectorRow = productionOrder.sector ? `
+    <tr>
+      <td style="font-weight:bold; color:#5f6368; font-size:14px;">Setor:</td>
+      <td style="text-align:right; color:#202124; font-size:14px;">${productionOrder.sector.name}</td>
+    </tr>
+  ` : '';
+  
+  const progressBar = plannedQty > 0 ? `
+    <div style="margin-top:15px; padding-top:15px; border-top:1px solid #e0e0e0;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td>
+            <p style="margin:0 0 8px 0; font-size:14px; color:#5f6368; font-weight:bold;">Progresso da Produção</p>
+            <p style="margin:0 0 8px 0; font-size:14px; color:#202124;"><strong>${producedQty.toLocaleString('pt-BR')}</strong> / ${plannedQty.toLocaleString('pt-BR')} peças</p>
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="height:24px; background-color:#e0e0e0; border-radius:12px;">
+              <tr>
+                <td width="${percentComplete}%" style="background-color:#4caf50; border-radius:12px; text-align:center; color:#ffffff; font-size:12px; font-weight:bold;">${percentComplete}%</td>
+                <td></td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </div>
+  ` : '';
+  
+  const actionsList = isUnproductive ? `
+    <ul style="margin:10px 0 0 20px; padding:0; color:#424242; line-height:1.8;">
+      <li><strong>Dirija-se ao local da parada o mais rápido possível</strong></li>
+      <li>Avalie a situação e identifique a causa raiz do problema</li>
+      <li>Implemente as ações corretivas necessárias</li>
+      <li>Comunique imediatamente a equipe de produção sobre o andamento</li>
+      <li>Registre todas as ações tomadas no Sistema MES</li>
+      <li>Documente lições aprendidas para prevenção futura</li>
+    </ul>
+  ` : `
+    <ul style="margin:10px 0 0 20px; padding:0; color:#424242; line-height:1.8;">
+      <li>Acompanhe o andamento da atividade em execução</li>
+      <li>Verifique se todos os recursos necessários estão disponíveis</li>
+      <li>Monitore o tempo de execução previsto</li>
+      <li>Mantenha a equipe informada sobre o progresso</li>
+      <li>Registre todas as ações tomadas no Sistema MES</li>
+      <li>Documente lições aprendidas para prevenção futura</li>
+    </ul>
+  `;
+
+  return `
+    <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+    <html xmlns="http://www.w3.org/1999/xhtml" lang="pt-BR">
+    <head>
+      <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+      <title>Alerta de Parada - ${activityType.name}</title>
+    </head>
+    <body style="margin:0; padding:0; background-color:#f0f2f5; font-family:Arial, sans-serif;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f0f2f5; padding:20px 0;">
+        <tr>
+          <td align="center">
+            <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color:#ffffff; max-width:600px;">
+              
+              <!-- Header -->
+              <tr>
+                <td style="background-color:${typeColor}; padding:40px 30px; text-align:center;">
+                  <div style="font-size:48px; margin-bottom:10px;">${isUnproductive ? '🛑' : '⏸️'}</div>
+                  <h1 style="margin:0 0 10px 0; color:#ffffff; font-size:24px; font-weight:bold;">Alerta de Parada de Produção</h1>
+                  <p style="margin:0; color:#ffffff; font-size:16px;">${activityType.name}</p>
+                </td>
+              </tr>
+              
+              <!-- Banner de Urgência -->
+              <tr>
+                <td style="background-color:${isUnproductive ? '#ff5722' : '#4caf50'}; padding:15px 30px; text-align:center;">
+                  <p style="margin:0; color:#ffffff; font-size:16px; font-weight:bold;">${isUnproductive ? '⚠️ ATENÇÃO IMEDIATA NECESSÁRIA' : 'ℹ️ Acompanhamento Necessário'}</p>
+                </td>
+              </tr>
+              
+              <!-- Conteúdo -->
+              <tr>
+                <td style="padding:30px;">
+                  
+                  <!-- Tempo Decorrido -->
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:20px; background-color:#ff6b6b; border-radius:8px;">
+                    <tr>
+                      <td style="padding:20px; text-align:center;">
+                        <p style="margin:0 0 5px 0; color:#ffffff; font-size:12px;">⏱️ Tempo Decorrido desde o Início</p>
+                        <p style="margin:0 0 5px 0; color:#ffffff; font-size:28px; font-weight:bold;">${timeElapsed}</p>
+                        <p style="margin:0; color:#ffffff; font-size:12px;">Iniciado em: ${startTime}</p>
+                      </td>
+                    </tr>
+                  </table>
+                  
+                  <!-- Setores Responsáveis -->
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:20px; background-color:#2196f3; border-radius:8px;">
+                    <tr>
+                      <td style="padding:20px;">
+                        <p style="margin:0 0 10px 0; color:#ffffff; font-size:16px; font-weight:bold;">👥 Setor(es) Responsável(is)</p>
+                        <p style="margin:0 0 10px 0; color:#ffffff; font-size:18px; font-weight:bold;">${sectorsText}</p>
+                        <p style="margin:0; color:#ffffff; font-size:12px;">Você está recebendo este e-mail porque seu setor foi designado como responsável por resolver este tipo de atividade.</p>
+                      </td>
+                    </tr>
+                  </table>
+                  
+                  <!-- Informações da Parada -->
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:20px; background-color:#f8f9fa; border-left:4px solid ${typeColor}; border-radius:4px;">
+                    <tr>
+                      <td style="padding:20px;">
+                        <p style="margin:0 0 15px 0; font-size:16px; font-weight:bold; color:#2c3e50;">📋 Informações da Parada</p>
+                        
+                        <table width="100%" cellpadding="8" cellspacing="0" border="0">
+                          <tr>
+                            <td style="font-weight:bold; color:#5f6368; font-size:14px; border-bottom:1px solid #e0e0e0;">Tipo:</td>
+                            <td style="text-align:right; color:#202124; font-size:14px; border-bottom:1px solid #e0e0e0;"><strong>${typeLabel}</strong></td>
+                          </tr>
+                          <tr>
+                            <td style="font-weight:bold; color:#5f6368; font-size:14px; border-bottom:1px solid #e0e0e0;">Motivo:</td>
+                            <td style="text-align:right; color:#202124; font-size:14px; border-bottom:1px solid #e0e0e0;">${downtime.reason}</td>
+                          </tr>
+                          <tr>
+                            <td style="font-weight:bold; color:#5f6368; font-size:14px;">Código:</td>
+                            <td style="text-align:right; color:#202124; font-size:14px;">${activityType.code}</td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+                  
+                  ${observationsBlock}
+                  
+                  <!-- Informações da Ordem -->
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:20px; background-color:#f8f9fa; border-left:4px solid ${typeColor}; border-radius:4px;">
+                    <tr>
+                      <td style="padding:20px;">
+                        <p style="margin:0 0 15px 0; font-size:16px; font-weight:bold; color:#2c3e50;">🏭 Ordem de Produção</p>
+                        
+                        <table width="100%" cellpadding="8" cellspacing="0" border="0">
+                          <tr>
+                            <td style="font-weight:bold; color:#5f6368; font-size:14px; border-bottom:1px solid #e0e0e0;">Ordem:</td>
+                            <td style="text-align:right; color:#202124; font-size:14px; border-bottom:1px solid #e0e0e0;"><strong>${productionOrder.orderNumber}</strong></td>
+                          </tr>
+                          ${itemRow}
+                          ${moldRow}
+                          ${sectorRow}
+                        </table>
+                        
+                        ${progressBar}
+                      </td>
+                    </tr>
+                  </table>
+                  
+                  <!-- Ações Recomendadas -->
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:20px; background-color:${isUnproductive ? '#fff3e0' : '#e8f5e9'}; border-left:4px solid ${isUnproductive ? '#ff9800' : '#4caf50'}; border-radius:4px;">
+                    <tr>
+                      <td style="padding:20px;">
+                        <p style="margin:0 0 10px 0; font-size:16px; font-weight:bold; color:${isUnproductive ? '#e65100' : '#1b5e20'};">⚡ Ações Recomendadas</p>
+                        ${actionsList}
+                      </td>
+                    </tr>
+                  </table>
+                  
+                  <!-- Dica -->
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#e3f2fd; border-left:4px solid #2196f3; border-radius:4px;">
+                    <tr>
+                      <td style="padding:15px;">
+                        <p style="margin:0; color:#1565c0; font-size:14px;"><strong>💡 Dica Importante:</strong> Acesse o Sistema MES para visualizar informações em tempo real, histórico completo de paradas e registrar suas ações de forma detalhada.</p>
+                      </td>
+                    </tr>
+                  </table>
+                  
+                </td>
+              </tr>
+              
+              <!-- Footer -->
+              <tr>
+                <td style="background-color:#f8f9fa; padding:25px 30px; text-align:center; border-top:1px solid #e0e0e0;">
+                  <p style="margin:0 0 5px 0; color:#202124; font-size:14px; font-weight:bold;">Sistema MES - Manufacturing Execution System</p>
+                  <p style="margin:0 0 5px 0; color:#5f6368; font-size:13px;">Este é um e-mail automático de notificação de paradas de produção.</p>
+                  <p style="margin:0 0 10px 0; color:#5f6368; font-size:13px;">${isUnproductive ? '<strong>⚠️ Responda rapidamente para minimizar o impacto na produção.</strong>' : 'Mantenha o responsável pela produção informado sobre o progresso.'}</p>
+                  <p style="margin:0; color:#9e9e9e; font-size:12px;">Enviado em: ${new Date().toLocaleString('pt-BR')}</p>
+                </td>
+              </tr>
+              
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+}
+
+/**
+ * Envia notificação de parada baseada em tipo de atividade para setores responsáveis
+ */
+export async function sendActivityDowntimeNotification(
+  downtimeId: number,
+  productionOrderId: number,
+  activityTypeId: number
+): Promise<{ success: boolean; error?: string; sentTo?: string[] }> {
+  try {
+    console.log(`📧 Iniciando envio de notificação de parada (atividade) ID: ${downtimeId}`);
+
+    // Buscar informações da parada
+    const downtime = await prisma.downtime.findUnique({
+      where: { id: downtimeId },
+    });
+
+    if (!downtime) {
+      throw new Error('Parada não encontrada');
+    }
+
+    // Buscar informações da ordem de produção com relações
+    const productionOrder = await prisma.productionOrder.findUnique({
+      where: { id: productionOrderId },
+      include: {
+        item: true,
+        mold: true,
+        sector: true,
+        company: {
+          include: {
+            emailConfigs: {
+              where: { active: true },
+              take: 1
+            }
+          }
+        }
+      }
+    });
+
+    if (!productionOrder) {
+      throw new Error('Ordem de produção não encontrada');
+    }
+
+    // Buscar informações do tipo de atividade com setores responsáveis
+    const activityType = await prisma.activityType.findUnique({
+      where: { id: activityTypeId },
+      include: {
+        activityTypeSectors: {
+          include: {
+            sector: true
+          }
+        }
+      }
+    });
+
+    if (!activityType) {
+      throw new Error('Tipo de atividade não encontrado');
+    }
+
+    // Filtrar setores que têm e-mail e estão configurados para receber alertas
+    const responsibleSectors = activityType.activityTypeSectors
+      .map(ats => ats.sector)
+      .filter(sector => sector.active && sector.sendEmailOnAlert && sector.email);
+
+    if (responsibleSectors.length === 0) {
+      console.log(`⚠️ Nenhum setor configurado para receber e-mails sobre a atividade ${activityType.code}`);
+      return {
+        success: false,
+        error: 'Nenhum setor configurado para receber notificações'
+      };
+    }
+
+    // Verificar se há configuração de e-mail ativa
+    const emailConfigs = productionOrder.company?.emailConfigs || [];
+    if (emailConfigs.length === 0) {
+      console.log(`⚠️ Nenhuma configuração de e-mail ativa encontrada para a empresa`);
+      return {
+        success: false,
+        error: 'Nenhuma configuração de e-mail ativa encontrada'
+      };
+    }
+
+    const emailConfig = emailConfigs[0];
+
+    // Preparar lista de destinatários
+    const recipients = responsibleSectors.map(s => s.email!);
+    const sectorsInfo = responsibleSectors.map(s => ({ name: s.name, code: s.code }));
+
+    // Gerar template de e-mail
+    const htmlTemplate = getActivityDowntimeNotificationTemplate(downtime, productionOrder, activityType, sectorsInfo);
+
+    const typeLabel = activityType.type === 'UNPRODUCTIVE' ? 'Parada Improdutiva' : 
+                      activityType.type === 'PRODUCTIVE' ? 'Atividade Produtiva' : 'Atividade Planejada';
+    const subject = `${activityType.type === 'UNPRODUCTIVE' ? '🛑' : '⏸️'} ALERTA: ${typeLabel} - ${activityType.name} - OP ${productionOrder.orderNumber}`;
+
+    // Enviar e-mail
+    const result = await sendEmail(
+      emailConfig.id,
+      {
+        to: recipients,
+        subject,
+        html: htmlTemplate,
+        text: `Parada de produção registrada. Atividade: ${activityType.name}. Ordem: ${productionOrder.orderNumber}. Setores responsáveis: ${sectorsInfo.map(s => s.name).join(', ')}.`
+      },
+      undefined, // moldId
+      downtimeId,
+      'downtime_notification'
+    );
+
+    if (result.success) {
+      console.log(`✅ Notificação de parada (atividade) enviada para ${recipients.length} setor(es): ${recipients.join(', ')}`);
+      return {
+        success: true,
+        sentTo: recipients
+      };
+    } else {
+      console.error(`❌ Falha ao enviar notificação de parada: ${result.error}`);
+      return result;
+    }
+
+  } catch (error: any) {
+    console.error('❌ Erro ao enviar notificação de parada (atividade):', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+

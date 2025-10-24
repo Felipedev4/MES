@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preview - Email de Parada</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #f0f2f5;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    .preview-header {
+      max-width: 650px;
+      margin: 0 auto 20px auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .preview-header h1 {
+      margin: 0 0 10px 0;
+      color: #1976d2;
+      font-size: 24px;
+    }
+    .preview-header p {
+      margin: 5px 0;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="preview-header">
+    <h1>📧 Preview do Email de Notificação de Parada</h1>
+    <p><strong>Versão 2.0</strong> - Template Profissional Melhorado</p>
+    <p>Este é um exemplo de como o email será exibido quando uma parada for registrada.</p>
+  </div>
+
+  <!-- EMAIL TEMPLATE COMEÇA AQUI -->
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    .email-body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.6; 
+      color: #333; 
+      background: #f0f2f5;
+      padding: 20px 0;
+    }
+    .email-wrapper { max-width: 650px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.12); }
+    
+    /* Header com gradiente e ícone grande */
+    .header { 
+      background: linear-gradient(135deg, #f44336 0%, #f44336cc 100%); 
+      color: white; 
+      padding: 40px 30px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .header::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    }
+    .header-icon {
+      font-size: 64px;
+      margin-bottom: 15px;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+      position: relative;
+      z-index: 1;
+    }
+    .header h1 { 
+      font-size: 28px; 
+      font-weight: 700; 
+      margin: 0 0 10px 0;
+      position: relative;
+      z-index: 1;
+    }
+    .header-subtitle {
+      font-size: 16px;
+      opacity: 0.95;
+      font-weight: 500;
+      position: relative;
+      z-index: 1;
+    }
+    
+    /* Badge de urgência */
+    .urgency-banner {
+      background: #ff5722;
+      color: white;
+      padding: 15px 30px;
+      text-align: center;
+      font-weight: 700;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    .urgency-banner-icon { font-size: 24px; }
+    
+    /* Conteúdo principal */
+    .content { padding: 30px; }
+    
+    /* Tempo decorrido - Box de destaque */
+    .time-elapsed-box {
+      background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 25px;
+      box-shadow: 0 4px 12px rgba(255,107,107,0.3);
+      text-align: center;
+    }
+    .time-elapsed-box h3 {
+      font-size: 14px;
+      opacity: 0.9;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    .time-elapsed-value {
+      font-size: 36px;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+    .time-elapsed-date {
+      font-size: 13px;
+      opacity: 0.85;
+    }
+    
+    /* Card com informações */
+    .info-card {
+      background: #f8f9fa;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-left: 4px solid #f44336;
+    }
+    .info-card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 15px;
+      font-size: 18px;
+      font-weight: 700;
+      color: #2c3e50;
+    }
+    .info-card-header-icon { font-size: 24px; }
+    
+    /* Linha de informação */
+    .info-line {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid #e0e0e0;
+      align-items: flex-start;
+    }
+    .info-line:last-child { border-bottom: none; }
+    .info-label {
+      font-weight: 600;
+      color: #5f6368;
+      font-size: 14px;
+      flex-shrink: 0;
+      margin-right: 20px;
+    }
+    .info-value {
+      color: #202124;
+      font-size: 14px;
+      text-align: right;
+      font-weight: 500;
+    }
+    
+    /* Box de setores responsáveis */
+    .sectors-box {
+      background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+      color: white;
+      padding: 25px;
+      border-radius: 10px;
+      margin: 25px 0;
+      box-shadow: 0 4px 12px rgba(33,150,243,0.3);
+    }
+    .sectors-box h3 {
+      font-size: 18px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .sectors-list {
+      font-size: 18px;
+      font-weight: 700;
+      margin: 10px 0;
+      padding: 15px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 8px;
+      backdrop-filter: blur(10px);
+    }
+    .sectors-note {
+      font-size: 13px;
+      opacity: 0.9;
+      line-height: 1.5;
+    }
+    
+    /* Barra de progresso da produção */
+    .production-progress {
+      margin: 20px 0;
+    }
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #5f6368;
+    }
+    .progress-bar-container {
+      width: 100%;
+      height: 24px;
+      background: #e0e0e0;
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+    }
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #4caf50 0%, #66bb6a 100%);
+      border-radius: 12px;
+      transition: width 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 12px;
+    }
+    
+    /* Observações */
+    .observations-box {
+      background: #fff8e1;
+      border-left: 4px solid #ffc107;
+      padding: 15px;
+      border-radius: 6px;
+      margin: 20px 0;
+    }
+    .observations-box p {
+      margin: 0;
+      color: #5f6368;
+      line-height: 1.6;
+    }
+    
+    /* Ações recomendadas */
+    .actions-box {
+      background: #fff3e0;
+      border-left: 4px solid #ff9800;
+      padding: 20px;
+      border-radius: 6px;
+      margin: 20px 0;
+    }
+    .actions-box h3 {
+      color: #e65100;
+      font-size: 16px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .actions-box ul {
+      margin: 10px 0 10px 20px;
+      padding: 0;
+    }
+    .actions-box li {
+      margin: 8px 0;
+      color: #424242;
+      line-height: 1.6;
+    }
+    
+    /* Dica */
+    .tip-box {
+      background: #e3f2fd;
+      border-left: 4px solid #2196f3;
+      padding: 15px;
+      border-radius: 6px;
+      margin: 20px 0;
+    }
+    .tip-box p {
+      margin: 0;
+      color: #1565c0;
+      font-size: 14px;
+    }
+    
+    /* Footer */
+    .footer {
+      background: #f8f9fa;
+      padding: 25px 30px;
+      text-align: center;
+      border-top: 1px solid #e0e0e0;
+    }
+    .footer p {
+      margin: 5px 0;
+      color: #5f6368;
+      font-size: 13px;
+    }
+    .footer-company {
+      font-weight: 700;
+      color: #202124;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+  </style>
+
+  <div class="email-body">
+    <div class="email-wrapper">
+      <!-- Header -->
+      <div class="header">
+        <div class="header-icon">🛑</div>
+        <h1>Alerta de Parada de Produção</h1>
+        <div class="header-subtitle">Falta de Energia</div>
+      </div>
+      
+      <!-- Banner de urgência -->
+      <div class="urgency-banner">
+        <span class="urgency-banner-icon">⚠️</span>
+        <span>ATENÇÃO IMEDIATA NECESSÁRIA</span>
+      </div>
+      
+      <!-- Conteúdo -->
+      <div class="content">
+        <!-- Tempo decorrido -->
+        <div class="time-elapsed-box">
+          <h3>⏱️ Tempo Decorrido desde o Início</h3>
+          <div class="time-elapsed-value">2h 35min</div>
+          <div class="time-elapsed-date">Iniciado em: 23/10/2025, 22:02:00</div>
+        </div>
+        
+        <!-- Setores Responsáveis -->
+        <div class="sectors-box">
+          <h3>👥 Setor(es) Responsável(is)</h3>
+          <div class="sectors-list">Manutenção</div>
+          <div class="sectors-note">
+            Você está recebendo este e-mail porque seu setor foi designado como responsável por resolver este tipo de atividade.
+          </div>
+        </div>
+        
+        <!-- Informações da Parada -->
+        <div class="info-card">
+          <div class="info-card-header">
+            <span class="info-card-header-icon">📋</span>
+            <span>Informações da Parada</span>
+          </div>
+          <div class="info-line">
+            <span class="info-label">Tipo:</span>
+            <span class="info-value"><strong>Improdutiva</strong></span>
+          </div>
+          <div class="info-line">
+            <span class="info-label">Motivo:</span>
+            <span class="info-value">Falta de Energia</span>
+          </div>
+          <div class="info-line">
+            <span class="info-label">Código da Atividade:</span>
+            <span class="info-value">FALTA_ENERGIA</span>
+          </div>
+        </div>
+        
+        <div class="observations-box">
+          <strong>📝 Observações:</strong>
+          <p>Queda de energia elétrica</p>
+        </div>
+        
+        <!-- Informações da Ordem de Produção -->
+        <div class="info-card">
+          <div class="info-card-header">
+            <span class="info-card-header-icon">🏭</span>
+            <span>Ordem de Produção</span>
+          </div>
+          <div class="info-line">
+            <span class="info-label">Número da Ordem:</span>
+            <span class="info-value"><strong>OP-2025-001</strong></span>
+          </div>
+          <div class="info-line">
+            <span class="info-label">Item/Produto:</span>
+            <span class="info-value">Balde 10L Azul<br><small>(PROD-006)</small></span>
+          </div>
+          <div class="info-line">
+            <span class="info-label">Molde:</span>
+            <span class="info-value">Caixa Organizadora 15L<br><small>(MOL-203)</small></span>
+          </div>
+          <div class="info-line">
+            <span class="info-label">Setor de Produção:</span>
+            <span class="info-value">Injeção</span>
+          </div>
+          
+          <!-- Progresso da Produção -->
+          <div class="production-progress">
+            <div class="progress-label">
+              <span>Progresso da Produção</span>
+              <span><strong>3.500</strong> / 5.000 peças</span>
+            </div>
+            <div class="progress-bar-container">
+              <div class="progress-bar" style="width: 70%">
+                70%
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Ações Recomendadas -->
+        <div class="actions-box">
+          <h3>
+            <span>⚡</span>
+            <span>Ações Recomendadas</span>
+          </h3>
+          <ul>
+            <li><strong>Dirija-se ao local da parada o mais rápido possível</strong></li>
+            <li>Avalie a situação e identifique a causa raiz do problema</li>
+            <li>Implemente as ações corretivas necessárias</li>
+            <li>Comunique imediatamente a equipe de produção sobre o andamento</li>
+            <li>Registre todas as ações tomadas no Sistema MES</li>
+            <li>Documente lições aprendidas para prevenção futura</li>
+          </ul>
+        </div>
+        
+        <!-- Dica -->
+        <div class="tip-box">
+          <p><strong>💡 Dica Importante:</strong> Acesse o Sistema MES para visualizar informações em tempo real, histórico completo de paradas e registrar suas ações de forma detalhada.</p>
+        </div>
+      </div>
+      
+      <!-- Footer -->
+      <div class="footer">
+        <p class="footer-company">Sistema MES - Manufacturing Execution System</p>
+        <p>Este é um e-mail automático de notificação de paradas de produção.</p>
+        <p><strong>⚠️ Responda rapidamente para minimizar o impacto na produção.</strong></p>
+        <p style="margin-top: 15px; color: #9e9e9e; font-size: 12px;">
+          Enviado em: 24/10/2025, 00:37:00
+        </p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+

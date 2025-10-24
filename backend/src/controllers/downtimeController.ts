@@ -6,7 +6,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../config/database';
 import moment from 'moment';
 import { AuthenticatedRequest, getCompanyFilter } from '../middleware/companyFilter';
-import { sendDowntimeNotification } from '../services/emailService';
+import { sendDowntimeNotification, sendActivityDowntimeNotification } from '../services/emailService';
 
 /**
  * Lista todas as paradas (filtrado por empresa)
@@ -655,6 +655,22 @@ export async function registerProductionStop(req: Request, res: Response): Promi
         mold: true,
       },
     });
+
+    // ⚡ NOTIFICAR SETORES RESPONSÁVEIS (assíncrono, não bloqueia resposta)
+    // Enviar notificações em background baseado nos setores vinculados à atividade
+    sendActivityDowntimeNotification(downtime.id, productionOrderId, activityTypeId)
+      .then((result) => {
+        if (result.success) {
+          console.log(`✅ Notificação de parada enviada com sucesso para: ${result.sentTo?.join(', ')}`);
+        } else {
+          console.warn(`⚠️ Notificação de parada não enviada: ${result.error}`);
+        }
+      })
+      .catch((error: any) => {
+        console.error('❌ Erro ao enviar notificações de parada:', error);
+      });
+
+    console.log(`📧 Processando notificações de parada para atividade ID: ${activityTypeId}`);
 
     res.status(201).json({
       message: 'Parada de produção registrada com sucesso',
