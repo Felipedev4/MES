@@ -325,8 +325,8 @@ model ActivityType {
   description               String?
   type                      String   @default("UNPRODUCTIVE") // PRODUCTIVE ou UNPRODUCTIVE
   color                     String? // Cor para visualização (hex)
-  sectorEmail               String? // E-mail do setor para notificações
-  emailNotificationsEnabled Boolean  @default(false) // Se as notificações por e-mail estão ativas
+  sectorEmail               String?  @map("sector_email") // E-mail do setor para notificações
+  emailNotificationsEnabled Boolean  @default(false) @map("email_notifications_enabled") // Se as notificações por e-mail estão ativas
   active                    Boolean  @default(true)
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
