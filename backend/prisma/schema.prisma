@@ -452,6 +452,8 @@ model ProductionDefect {
   productionOrder ProductionOrder @relation(fields: [productionOrderId], references: [id])
   defect          Defect          @relation(fields: [defectId], references: [id])
 
+  @@index([timestamp])
+  @@index([productionOrderId, timestamp])
   @@map("production_defects")
 }
 
