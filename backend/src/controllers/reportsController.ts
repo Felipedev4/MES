@@ -20,10 +20,16 @@ export const getProductionReport = async (req: Request, res: Response) => {
     if (startDate || endDate) {
       whereClause.timestamp = {};
       if (startDate) {
-        whereClause.timestamp.gte = new Date(startDate as string);
+        // Início do dia (00:00:00)
+        const start = new Date(startDate as string);
+        start.setHours(0, 0, 0, 0);
+        whereClause.timestamp.gte = start;
       }
       if (endDate) {
-        whereClause.timestamp.lte = new Date(endDate as string);
+        // Fim do dia (23:59:59.999)
+        const end = new Date(endDate as string);
+        end.setHours(23, 59, 59, 999);
+        whereClause.timestamp.lte = end;
       }
     }
     
@@ -141,12 +147,22 @@ export const getDefectsReport = async (req: Request, res: Response) => {
   try {
     const { startDate, endDate, companyId } = req.query;
     
-    const whereClause: any = {
-      createdAt: {
-        gte: startDate ? new Date(startDate as string) : undefined,
-        lte: endDate ? new Date(endDate as string) : undefined,
-      },
-    };
+    const whereClause: any = {};
+    
+    // Filtro de data
+    if (startDate || endDate) {
+      whereClause.createdAt = {};
+      if (startDate) {
+        const start = new Date(startDate as string);
+        start.setHours(0, 0, 0, 0);
+        whereClause.createdAt.gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate as string);
+        end.setHours(23, 59, 59, 999);
+        whereClause.createdAt.lte = end;
+      }
+    }
     
     if (companyId) {
       whereClause.productionOrder = {
@@ -232,12 +248,22 @@ export const getDowntimeReport = async (req: Request, res: Response) => {
   try {
     const { startDate, endDate, companyId } = req.query;
     
-    const whereClause: any = {
-      startTime: {
-        gte: startDate ? new Date(startDate as string) : undefined,
-        lte: endDate ? new Date(endDate as string) : undefined,
-      },
-    };
+    const whereClause: any = {};
+    
+    // Filtro de data
+    if (startDate || endDate) {
+      whereClause.startTime = {};
+      if (startDate) {
+        const start = new Date(startDate as string);
+        start.setHours(0, 0, 0, 0);
+        whereClause.startTime.gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate as string);
+        end.setHours(23, 59, 59, 999);
+        whereClause.startTime.lte = end;
+      }
+    }
     
     if (companyId) {
       whereClause.productionOrder = {
@@ -347,12 +373,22 @@ export const getEfficiencyReport = async (req: Request, res: Response) => {
   try {
     const { startDate, endDate, companyId } = req.query;
     
-    const whereClause: any = {
-      plannedStartDate: {
-        gte: startDate ? new Date(startDate as string) : undefined,
-        lte: endDate ? new Date(endDate as string) : undefined,
-      },
-    };
+    const whereClause: any = {};
+    
+    // Filtro de data
+    if (startDate || endDate) {
+      whereClause.plannedStartDate = {};
+      if (startDate) {
+        const start = new Date(startDate as string);
+        start.setHours(0, 0, 0, 0);
+        whereClause.plannedStartDate.gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate as string);
+        end.setHours(23, 59, 59, 999);
+        whereClause.plannedStartDate.lte = end;
+      }
+    }
     
     if (companyId) {
       whereClause.item = {
@@ -505,12 +541,22 @@ export const getOrdersReport = async (req: Request, res: Response) => {
   try {
     const { startDate, endDate, companyId } = req.query;
     
-    const whereClause: any = {
-      plannedStartDate: {
-        gte: startDate ? new Date(startDate as string) : undefined,
-        lte: endDate ? new Date(endDate as string) : undefined,
-      },
-    };
+    const whereClause: any = {};
+    
+    // Filtro de data
+    if (startDate || endDate) {
+      whereClause.plannedStartDate = {};
+      if (startDate) {
+        const start = new Date(startDate as string);
+        start.setHours(0, 0, 0, 0);
+        whereClause.plannedStartDate.gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate as string);
+        end.setHours(23, 59, 59, 999);
+        whereClause.plannedStartDate.lte = end;
+      }
+    }
     
     if (companyId) {
       whereClause.item = {
