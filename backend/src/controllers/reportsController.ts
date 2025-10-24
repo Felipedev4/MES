@@ -41,8 +41,12 @@ export const getProductionReport = async (req: Request, res: Response) => {
             sector: true,
           },
         },
-        user: true,
-        shift: true,
+        user: {
+          include: {
+            shift: true, // Turno padrão do operador
+          },
+        },
+        shift: true, // Turno do apontamento
       },
       orderBy: {
         timestamp: 'desc',
@@ -77,12 +81,17 @@ export const getProductionReport = async (req: Request, res: Response) => {
         ? new Date(appt.endTime).toLocaleDateString('pt-BR') + ' ' + new Date(appt.endTime).toLocaleTimeString('pt-BR')
         : '-';
       
+      // Turno padrão do operador
+      const operatorShift = appt.user?.shift 
+        ? `${appt.user.shift.name} (${appt.user.shift.code})`
+        : '-';
+      
       return {
         'Data Apontamento': new Date(appt.timestamp).toLocaleDateString('pt-BR'),
         'Hora Apontamento': new Date(appt.timestamp).toLocaleTimeString('pt-BR'),
         'Data/Hora Início': dataInicio,
         'Data/Hora Fim': dataFim,
-        'Turno': shift,
+        'Turno do Apontamento': shift,
         'Ordem': appt.productionOrder?.orderNumber || '-',
         'Item': appt.productionOrder?.item?.name || '-',
         'Referência': appt.productionOrder?.item?.code || '-',
@@ -94,6 +103,7 @@ export const getProductionReport = async (req: Request, res: Response) => {
         'Setor': appt.productionOrder?.sector?.name || '-',
         'Operador/Colaborador': appt.user?.name || '-',
         'Matrícula': appt.user?.employeeCode || '-',
+        'Turno do Operador': operatorShift,
         'Tipo Apontamento': appt.automatic ? 'Automático (CLP)' : 'Manual',
         'Qtd Produzida': appt.quantity || 0,
         'Qtd Rejeitada': appt.rejectedQuantity || 0,
@@ -244,6 +254,11 @@ export const getDowntimeReport = async (req: Request, res: Response) => {
             plcConfig: true,
           },
         },
+        user: {
+          include: {
+            shift: true, // Turno padrão do operador
+          },
+        },
         defect: true,
       },
       orderBy: {
@@ -276,12 +291,17 @@ export const getDowntimeReport = async (req: Request, res: Response) => {
       else if (hour >= 14 && hour < 22) shift = '2º Turno';
       else shift = '3º Turno';
       
+      // Turno padrão do operador
+      const operatorShift = downtime.user?.shift 
+        ? `${downtime.user.shift.name} (${downtime.user.shift.code})`
+        : '-';
+      
       return {
         'Data Início': new Date(downtime.startTime).toLocaleDateString('pt-BR'),
         'Hora Início': new Date(downtime.startTime).toLocaleTimeString('pt-BR'),
         'Data Fim': downtime.endTime ? new Date(downtime.endTime).toLocaleDateString('pt-BR') : 'Em Andamento',
         'Hora Fim': downtime.endTime ? new Date(downtime.endTime).toLocaleTimeString('pt-BR') : '-',
-        'Turno': shift,
+        'Turno da Parada': shift,
         'Duração (min)': duration,
         'Duração (h)': durationHours,
         '% do Total': percentOfTotal,
@@ -292,6 +312,9 @@ export const getDowntimeReport = async (req: Request, res: Response) => {
         'Código Atividade': downtime.activityType?.code || '-',
         'Tipo': downtime.type === 'PRODUCTIVE' ? 'Produtiva' : 'Improdutiva',
         'Classificação': downtime.type === 'PRODUCTIVE' ? 'Setup/Troca' : 'Falha/Manutenção',
+        'Operador Responsável': downtime.user?.name || '-',
+        'Matrícula Operador': downtime.user?.employeeCode || '-',
+        'Turno do Operador': operatorShift,
         'Defeito Relacionado': downtime.defect?.name || '-',
         'Setores Responsáveis': downtime.activityType?.activityTypeSectors?.map((ats: any) => ats.sector.name).join(', ') || '-',
         'Custo Estimado (R$)': estimatedCost,
@@ -333,7 +356,15 @@ export const getEfficiencyReport = async (req: Request, res: Response) => {
         plcConfig: true,
         mold: true,
         downtimes: true,
-        productionAppointments: true,
+        productionAppointments: {
+          include: {
+            user: {
+              include: {
+                shift: true, // Turno padrão dos operadores
+              },
+            },
+          },
+        },
       },
       orderBy: {
         plannedStartDate: 'desc',
@@ -404,6 +435,18 @@ export const getEfficiencyReport = async (req: Request, res: Response) => {
         ? ((actualTime / plannedTime) * 100).toFixed(2)
         : '0.00';
       
+      // Operadores envolvidos (únicos)
+      const operators = order.productionAppointments
+        ?.map((appt: any) => appt.user)
+        .filter((user: any, index: number, self: any[]) => 
+          user && self.findIndex((u: any) => u?.id === user?.id) === index
+        ) || [];
+      
+      const operatorNames = operators.map((user: any) => user.name).join(', ') || '-';
+      const operatorShifts = operators
+        .map((user: any) => user.shift ? `${user.name}: ${user.shift.name} (${user.shift.code})` : `${user.name}: Sem turno`)
+        .join('; ') || '-';
+      
       return {
         'Data': order.plannedStartDate ? new Date(order.plannedStartDate).toLocaleDateString('pt-BR') : '-',
         'Ordem': order.orderNumber,
@@ -432,6 +475,8 @@ export const getEfficiencyReport = async (req: Request, res: Response) => {
         'Qualidade (%)': quality,
         'OEE (%)': oee,
         'Classificação OEE': parseFloat(oee) >= 85 ? 'Classe Mundial' : parseFloat(oee) >= 60 ? 'Boa' : parseFloat(oee) >= 40 ? 'Regular' : 'Ruim',
+        'Operadores Envolvidos': operatorNames,
+        'Turnos dos Operadores': operatorShifts,
       };
     });
     
@@ -471,7 +516,15 @@ export const getOrdersReport = async (req: Request, res: Response) => {
         plcConfig: true,
         sector: true,
         downtimes: true,
-        productionAppointments: true,
+        productionAppointments: {
+          include: {
+            user: {
+              include: {
+                shift: true, // Turno padrão dos operadores
+              },
+            },
+          },
+        },
       },
       orderBy: {
         plannedStartDate: 'desc',
@@ -520,6 +573,18 @@ export const getOrdersReport = async (req: Request, res: Response) => {
       const avgTimePerPiece = order.producedQuantity > 0 && actualTime > 0
         ? (actualTime / order.producedQuantity).toFixed(2)
         : '0.00';
+      
+      // Operadores envolvidos (únicos)
+      const operators = order.productionAppointments
+        ?.map((appt: any) => appt.user)
+        .filter((user: any, index: number, self: any[]) => 
+          user && self.findIndex((u: any) => u?.id === user?.id) === index
+        ) || [];
+      
+      const operatorNames = operators.map((user: any) => user.name).join(', ') || '-';
+      const operatorShifts = operators
+        .map((user: any) => user.shift ? `${user.name}: ${user.shift.name} (${user.shift.code})` : `${user.name}: Sem turno`)
+        .join('; ') || '-';
       
       // Status de prazo
       let deadlineStatus = 'No Prazo';
@@ -577,6 +642,8 @@ export const getOrdersReport = async (req: Request, res: Response) => {
         'Custo/Peça (R$)': costPerPiece,
         'Nº Apontamentos': order.productionAppointments?.length || 0,
         'Nº Paradas': order.downtimes?.length || 0,
+        'Operadores Envolvidos': operatorNames,
+        'Turnos dos Operadores': operatorShifts,
         'Notas': order.notes || '-',
       };
     });
