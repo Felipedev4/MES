@@ -40,9 +40,6 @@ import {
   CheckCircle as ProductiveIcon,
   Cancel as UnproductiveIcon,
   Palette as ColorIcon,
-  Email as EmailIcon,
-  Notifications as NotificationsIcon,
-  NotificationsOff as NotificationsOffIcon,
   Warning as WarningIcon,
   Business as SectorIcon,
 } from '@mui/icons-material';
