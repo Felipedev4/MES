@@ -2,20 +2,18 @@
  * Página de Relatórios - Design Profissional
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Paper,
   Typography,
   Grid,
   Card,
-  CardContent,
   CardActionArea,
   Stack,
   TextField,
   Button,
   MenuItem,
-  Divider,
   Chip,
   Table,
   TableBody,
@@ -45,7 +43,7 @@ import {
 import { useSnackbar } from 'notistack';
 import PageHeader from '../components/PageHeader';
 import api from '../services/api';
-import { exportToExcel, exportToPDF, formatNumber, formatPercentage, formatDate } from '../utils/exportUtils';
+import { exportToExcel, exportToPDF, formatDate } from '../utils/exportUtils';
 import { format } from 'date-fns';
 
 interface Company {
@@ -262,7 +260,6 @@ export default function Reports() {
               ← Voltar
             </Button>
             <Chip
-              icon={currentReport?.icon}
               label={currentReport?.title}
               sx={{
                 fontWeight: 600,

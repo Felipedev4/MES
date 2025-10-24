@@ -25,6 +25,7 @@ export const ROLE_PERMISSIONS = {
     email_config: { canView: true, canCreate: true, canEdit: true, canDelete: true },
     maintenance_alerts: { canView: true, canCreate: true, canEdit: true, canDelete: true },
     email_logs: { canView: true, canCreate: true, canEdit: true, canDelete: true },
+    reports: { canView: true, canCreate: true, canEdit: true, canDelete: true },
   },
   DIRECTOR: {
     dashboard: { canView: true, canCreate: true, canEdit: true, canDelete: false },
@@ -46,6 +47,7 @@ export const ROLE_PERMISSIONS = {
     email_config: { canView: true, canCreate: true, canEdit: true, canDelete: false },
     maintenance_alerts: { canView: true, canCreate: true, canEdit: true, canDelete: false },
     email_logs: { canView: true, canCreate: true, canEdit: true, canDelete: false },
+    reports: { canView: true, canCreate: true, canEdit: true, canDelete: false },
   },
   MANAGER: {
     dashboard: { canView: true, canCreate: true, canEdit: true, canDelete: false },
@@ -67,6 +69,7 @@ export const ROLE_PERMISSIONS = {
     email_config: { canView: true, canCreate: true, canEdit: true, canDelete: false },
     maintenance_alerts: { canView: true, canCreate: true, canEdit: true, canDelete: false },
     email_logs: { canView: true, canCreate: false, canEdit: true, canDelete: false },
+    reports: { canView: true, canCreate: true, canEdit: true, canDelete: false },
   },
   SUPERVISOR: {
     dashboard: { canView: true, canCreate: true, canEdit: true, canDelete: false },
@@ -88,6 +91,7 @@ export const ROLE_PERMISSIONS = {
     email_config: { canView: true, canCreate: false, canEdit: false, canDelete: false },
     maintenance_alerts: { canView: true, canCreate: false, canEdit: false, canDelete: false },
     email_logs: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+    reports: { canView: true, canCreate: false, canEdit: false, canDelete: false },
   },
   LEADER: {
     dashboard: { canView: true, canCreate: false, canEdit: false, canDelete: false },
@@ -109,6 +113,7 @@ export const ROLE_PERMISSIONS = {
     email_config: { canView: false, canCreate: false, canEdit: false, canDelete: false },
     maintenance_alerts: { canView: false, canCreate: false, canEdit: false, canDelete: false },
     email_logs: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+    reports: { canView: true, canCreate: false, canEdit: false, canDelete: false },
   },
   OPERATOR: {
     dashboard: { canView: true, canCreate: false, canEdit: false, canDelete: false },
@@ -130,6 +135,7 @@ export const ROLE_PERMISSIONS = {
     email_config: { canView: false, canCreate: false, canEdit: false, canDelete: false },
     maintenance_alerts: { canView: false, canCreate: false, canEdit: false, canDelete: false },
     email_logs: { canView: false, canCreate: false, canEdit: false, canDelete: false },
+    reports: { canView: false, canCreate: false, canEdit: false, canDelete: false },
   },
 } as const;
 
