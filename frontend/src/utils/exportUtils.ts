@@ -46,15 +46,30 @@ export const exportToPDF = (
   fileName: string,
   filters?: { label: string; value: string }[]
 ) => {
-  const doc = new jsPDF();
+  // Detectar número de colunas para configurar orientação e tamanho
+  const columnCount = headers.length;
+  const isWideReport = columnCount > 10;
+  
+  // Configurar orientação baseado no número de colunas
+  const orientation = isWideReport ? 'landscape' : 'portrait';
+  const doc = new jsPDF({
+    orientation: orientation as 'landscape' | 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
+  
+  // Ajustar tamanhos baseado no número de colunas
+  const titleSize = isWideReport ? 14 : 16;
+  const baseFontSize = columnCount > 20 ? 6 : columnCount > 15 ? 7 : 8;
+  const cellPadding = columnCount > 20 ? 1 : columnCount > 15 ? 1.5 : 2;
   
   // Título
-  doc.setFontSize(16);
+  doc.setFontSize(titleSize);
   doc.setFont('helvetica', 'bold');
   doc.text(title, 14, 15);
   
   // Data de geração
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.text(
     `Gerado em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`,
@@ -66,13 +81,13 @@ export const exportToPDF = (
   
   // Filtros aplicados
   if (filters && filters.length > 0) {
-    doc.setFontSize(10);
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
     doc.text('Filtros Aplicados:', 14, yPosition);
     yPosition += 5;
     
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     filters.forEach(filter => {
       doc.text(`${filter.label}: ${filter.value}`, 14, yPosition);
       yPosition += 4;
@@ -80,36 +95,78 @@ export const exportToPDF = (
     yPosition += 3;
   }
   
-  // Tabela
-  autoTable(doc, {
+  // Configurar estilos da tabela
+  const tableConfig: any = {
     head: [headers],
     body: data,
     startY: yPosition,
     styles: {
-      fontSize: 8,
-      cellPadding: 2,
+      fontSize: baseFontSize,
+      cellPadding: cellPadding,
+      overflow: 'linebreak',
+      cellWidth: 'wrap',
+      minCellHeight: 5,
+      halign: 'left',
+      valign: 'middle',
     },
     headStyles: {
-      fillColor: [66, 139, 202],
+      fillColor: [41, 128, 185],
       textColor: 255,
       fontStyle: 'bold',
+      halign: 'center',
+      valign: 'middle',
+      minCellHeight: 8,
     },
     alternateRowStyles: {
       fillColor: [245, 245, 245],
     },
-    margin: { top: yPosition },
-  });
+    margin: { left: 10, right: 10 },
+    tableWidth: 'auto',
+    columnStyles: {},
+  };
   
-  // Rodapé
+  // Para relatórios muito largos, ajustar largura das colunas
+  if (isWideReport) {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margins = 20; // 10mm de cada lado
+    const availableWidth = pageWidth - margins;
+    const avgColumnWidth = availableWidth / columnCount;
+    
+    // Aplicar largura mínima para cada coluna
+    headers.forEach((_, index) => {
+      tableConfig.columnStyles[index] = {
+        cellWidth: Math.max(avgColumnWidth, 15), // Mínimo de 15mm
+      };
+    });
+  }
+  
+  // Gerar tabela
+  autoTable(doc, tableConfig);
+  
+  // Rodapé com número de páginas
   const pageCount = (doc as any).internal.getNumberOfPages();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     doc.setFontSize(8);
+    doc.setTextColor(128, 128, 128);
+    
+    // Número da página centralizado
     doc.text(
       `Página ${i} de ${pageCount}`,
-      doc.internal.pageSize.width / 2,
-      doc.internal.pageSize.height - 10,
+      pageWidth / 2,
+      pageHeight - 8,
       { align: 'center' }
+    );
+    
+    // Nome do sistema no canto direito
+    doc.text(
+      'Sistema MES',
+      pageWidth - 14,
+      pageHeight - 8,
+      { align: 'right' }
     );
   }
   
