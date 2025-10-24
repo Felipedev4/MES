@@ -10,7 +10,7 @@ import {
   getEfficiencyReport,
   getOrdersReport,
 } from '../controllers/reportsController';
-import { authenticateToken } from '../middleware/authMiddleware';
+import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 
