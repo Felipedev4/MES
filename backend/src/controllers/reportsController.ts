@@ -94,7 +94,11 @@ export const getDefectsReport = async (req: Request, res: Response) => {
       include: {
         defect: {
           include: {
-            responsibleSectors: true,
+            defectSectors: {
+              include: {
+                sector: true,
+              },
+            },
           },
         },
         productionOrder: {
@@ -115,7 +119,7 @@ export const getDefectsReport = async (req: Request, res: Response) => {
       'Severidade': defect.defect?.severity || '-',
       'Item': defect.productionOrder?.item?.name || '-',
       'Quantidade': defect.quantity,
-      'Setores Responsáveis': defect.defect?.responsibleSectors?.map((s: any) => s.name).join(', ') || '-',
+      'Setores Responsáveis': defect.defect?.defectSectors?.map((ds: any) => ds.sector.name).join(', ') || '-',
       'Observações': defect.notes || '-',
     }));
     
